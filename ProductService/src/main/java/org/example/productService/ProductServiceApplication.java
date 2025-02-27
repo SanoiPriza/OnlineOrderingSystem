@@ -1,5 +1,7 @@
 package org.example.productService;
 
+import org.example.productService.model.Product;
+import org.example.productService.repository.ProductRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
