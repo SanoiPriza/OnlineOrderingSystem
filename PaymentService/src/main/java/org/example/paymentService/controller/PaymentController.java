@@ -6,6 +6,10 @@ import org.example.paymentService.service.PaymentService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 @RestController
 @RequestMapping("/api/payments")
 public class PaymentController {
@@ -32,5 +36,10 @@ public class PaymentController {
     public ResponseEntity<PaymentResponse> refundPayment(@PathVariable String transactionId) {
         PaymentResponse response = paymentService.refundPayment(transactionId);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/status")
+    public String getStatus() {
+        return "Payment Service is running!";
     }
 }

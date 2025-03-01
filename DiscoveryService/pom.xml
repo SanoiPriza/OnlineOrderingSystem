@@ -10,25 +10,13 @@
         <version>1.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>OrderService</artifactId>
+    <artifactId>DiscoveryService</artifactId>
 
     <dependencies>
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-jpa</artifactId>
-        </dependency>
-        <dependency>
             <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.postgresql</groupId>
-            <artifactId>postgresql</artifactId>
-            <scope>runtime</scope>
+            <artifactId>spring-cloud-starter-netflix-eureka-server</artifactId>
+            <version>4.2.0</version>
         </dependency>
     </dependencies>
 
