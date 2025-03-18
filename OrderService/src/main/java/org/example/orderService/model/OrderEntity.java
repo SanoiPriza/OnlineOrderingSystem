@@ -31,6 +31,36 @@ public class OrderEntity {
     @Column(nullable = false)
     private String status;
 
+    @Column
+    private String statusMessage;
+
+    @Column
+    private String paymentMethod;
+
+    @Column
+    private Double amount;
+
+    @Column
+    private String currency;
+
+    @Column
+    private String cardNumber;
+
+    @Column
+    private String cardExpiryMonth;
+
+    @Column
+    private String cardExpiryYear;
+
+    @Column
+    private String cardCvv;
+
+    @Column
+    private String cardHolderName;
+
+    @Column
+    private String paymentTransactionId;
+
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
@@ -92,6 +122,86 @@ public class OrderEntity {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getStatusMessage() {
+        return statusMessage;
+    }
+
+    public void setStatusMessage(String statusMessage) {
+        this.statusMessage = statusMessage;
+    }
+
+    public String getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public void setPaymentMethod(String paymentMethod) {
+        this.paymentMethod = paymentMethod;
+    }
+
+    public Double getAmount() {
+        return amount;
+    }
+
+    public void setAmount(Double amount) {
+        this.amount = amount;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(String currency) {
+        this.currency = currency;
+    }
+
+    public String getCardNumber() {
+        return cardNumber;
+    }
+
+    public void setCardNumber(String cardNumber) {
+        this.cardNumber = cardNumber;
+    }
+
+    public String getCardExpiryMonth() {
+        return cardExpiryMonth;
+    }
+
+    public void setCardExpiryMonth(String cardExpiryMonth) {
+        this.cardExpiryMonth = cardExpiryMonth;
+    }
+
+    public String getCardExpiryYear() {
+        return cardExpiryYear;
+    }
+
+    public void setCardExpiryYear(String cardExpiryYear) {
+        this.cardExpiryYear = cardExpiryYear;
+    }
+
+    public String getCardCvv() {
+        return cardCvv;
+    }
+
+    public void setCardCvv(String cardCvv) {
+        this.cardCvv = cardCvv;
+    }
+
+    public String getCardHolderName() {
+        return cardHolderName;
+    }
+
+    public void setCardHolderName(String cardHolderName) {
+        this.cardHolderName = cardHolderName;
+    }
+
+    public String getPaymentTransactionId() {
+        return paymentTransactionId;
+    }
+
+    public void setPaymentTransactionId(String paymentTransactionId) {
+        this.paymentTransactionId = paymentTransactionId;
     }
 
     public LocalDateTime getCreatedAt() {
