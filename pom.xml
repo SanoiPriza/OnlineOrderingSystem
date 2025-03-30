@@ -15,6 +15,7 @@
         <module>PaymentService</module>
         <module>DiscoveryService</module>
         <module>ApiGateway</module>
+        <module>UserService</module>
     </modules>
 
     <properties>
