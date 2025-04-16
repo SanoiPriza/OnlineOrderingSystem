@@ -8,7 +8,6 @@ import org.example.orderService.dto.PaymentRequest;
 import org.example.orderService.dto.PaymentResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
@@ -19,16 +18,13 @@ import java.util.concurrent.CompletableFuture;
 public class PaymentServiceClient {
 
     private final WebClient.Builder webClientBuilder;
-    private final RestTemplate restTemplate;
     private final CircuitBreaker circuitBreaker;
     private final String paymentServiceUrl;
 
     public PaymentServiceClient(
             WebClient.Builder webClientBuilder,
-            RestTemplate restTemplate,
             @Value("${payment.service.url:http://localhost:8083}") String paymentServiceUrl) {
         this.webClientBuilder = webClientBuilder;
-        this.restTemplate = restTemplate;
         this.paymentServiceUrl = paymentServiceUrl;
 
         CircuitBreakerConfig circuitBreakerConfig = CircuitBreakerConfig.custom()

@@ -1,40 +1,32 @@
 package org.example.paymentService;
 
-import org.example.paymentService.model.User;
-import org.example.paymentService.repository.UserRepository;
-import org.springframework.boot.CommandLineRunner;
+import org.example.common.security.config.CommonSecurityConfig;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.web.client.RestTemplate;
-import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+import org.springframework.web.reactive.function.client.WebClient;
 
 @SpringBootApplication
 @EnableDiscoveryClient
+@EnableFeignClients
+@Import(CommonSecurityConfig.class)
 public class PaymentServiceApplication {
     public static void main(String[] args) {
         SpringApplication.run(PaymentServiceApplication.class, args);
     }
 
     @Bean
-    public RestTemplate restTemplate() {
-        return new RestTemplate();
+    public WebClient.Builder webClientBuilder() {
+        return WebClient.builder();
     }
 
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
         return authConfig.getAuthenticationManager();
-    }
-
-    @Bean
-    CommandLineRunner initDatabase(UserRepository repository, PasswordEncoder passwordEncoder) {
-        return args -> {
-            if (!repository.findByUsername("admin").isPresent()) {
-                repository.save(new User("admin", passwordEncoder.encode("admin123")));
-            }
-        };
     }
 }
