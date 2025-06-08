@@ -1,38 +1,33 @@
 package org.example.paymentService.security;
 
 import org.example.common.security.config.CommonWebSecurityConfig;
+import org.example.common.security.jwt.DelegatedJwtAuthenticationFilter;
 import org.example.common.security.jwt.JwtAuthenticationEntryPoint;
-import org.example.common.security.jwt.JwtAuthenticationFilter;
-import org.example.common.security.jwt.JwtTokenUtil;
-import org.springframework.beans.factory.annotation.Qualifier;
+import org.example.common.security.service.AuthValidationService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.SecurityFilterChain;
 
-@Configuration
+@Configuration("paymentSecurityConfig")
 @EnableWebSecurity
 public class SecurityConfig extends CommonWebSecurityConfig {
 
-    private final JwtTokenUtil jwtTokenUtil;
-    private final UserDetailsService userDetailsService;
+    private final AuthValidationService authValidationService;
     private final JwtAuthenticationEntryPoint jwtAuthEntryPoint;
 
-    public SecurityConfig(
-            JwtTokenUtil jwtTokenUtil, 
-            @Qualifier("paymentServiceUserDetailsService") UserDetailsService userDetailsService, 
-            JwtAuthenticationEntryPoint jwtAuthEntryPoint) {
-        this.jwtTokenUtil = jwtTokenUtil;
-        this.userDetailsService = userDetailsService;
+    public SecurityConfig(AuthValidationService authValidationService,
+                          JwtAuthenticationEntryPoint jwtAuthEntryPoint) {
+        this.authValidationService = authValidationService;
         this.jwtAuthEntryPoint = jwtAuthEntryPoint;
     }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        JwtAuthenticationFilter jwtAuthFilter = createJwtAuthenticationFilter(jwtTokenUtil, userDetailsService);
+        DelegatedJwtAuthenticationFilter delegatedAuthFilter =
+                createDelegatedJwtAuthenticationFilter(authValidationService);
 
-        return configureSecurityFilterChain(http, jwtAuthFilter, jwtAuthEntryPoint);
+        return configureDelegatedSecurityFilterChain(http, delegatedAuthFilter, jwtAuthEntryPoint);
     }
 }

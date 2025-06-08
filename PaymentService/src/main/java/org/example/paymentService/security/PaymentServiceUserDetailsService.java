@@ -26,26 +26,27 @@ public class PaymentServiceUserDetailsService implements UserDetailsService {
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         try {
             UserDetailsResponse userResponse = userServiceClient.getUserByUsername(username);
-            
+
             if (userResponse == null) {
-                throw new UsernameNotFoundException("User not found with username: " + username);
+                throw new UsernameNotFoundException("User not found: " + username);
             }
-            
+
             List<SimpleGrantedAuthority> authorities = userResponse.getRoles().stream()
                     .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
                     .collect(Collectors.toList());
-            
-            return new org.springframework.security.core.userdetails.User(
-                    userResponse.getUsername(),
-                    "",
-                    userResponse.isActive(),
-                    true,
-                    true,
-                    true,
-                    authorities
-            );
+
+            return org.springframework.security.core.userdetails.User.builder()
+                    .username(userResponse.getUsername())
+                    .password("")
+                    .authorities(authorities)
+                    .accountExpired(!userResponse.isAccountNonExpired())
+                    .accountLocked(!userResponse.isAccountNonLocked())
+                    .credentialsExpired(!userResponse.isCredentialsNonExpired())
+                    .disabled(!userResponse.isEnabled())
+                    .build();
+
         } catch (Exception e) {
-            throw new UsernameNotFoundException("Error fetching user: " + e.getMessage(), e);
+            throw new UsernameNotFoundException("Failed to load user: " + username, e);
         }
     }
 }

@@ -7,6 +7,8 @@ import org.example.common.security.jwt.JwtTokenUtil;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -23,12 +25,17 @@ public class SecurityConfig extends CommonWebSecurityConfig {
     private final JwtAuthenticationEntryPoint jwtAuthEntryPoint;
 
     public SecurityConfig(
-            JwtTokenUtil jwtTokenUtil, 
-            @Qualifier("userServiceUserDetailsService") UserDetailsService userDetailsService, 
+            JwtTokenUtil jwtTokenUtil,
+            @Qualifier("userServiceUserDetailsService") UserDetailsService userDetailsService,
             JwtAuthenticationEntryPoint jwtAuthEntryPoint) {
         this.jwtTokenUtil = jwtTokenUtil;
         this.userDetailsService = userDetailsService;
         this.jwtAuthEntryPoint = jwtAuthEntryPoint;
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+        return config.getAuthenticationManager();
     }
 
     @Bean

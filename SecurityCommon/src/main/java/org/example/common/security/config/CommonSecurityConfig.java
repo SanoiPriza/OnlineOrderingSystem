@@ -11,17 +11,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 @Configuration
 public class CommonSecurityConfig {
 
-    @Value("${jwt.secret:defaultSecretKey}")
-    private String jwtSecret;
-
-    @Value("${jwt.expiration:86400}")
-    private long jwtExpiration;
-
-    @Bean
-    public JwtTokenUtil jwtTokenUtil() {
-        return new JwtTokenUtil(jwtSecret, jwtExpiration);
-    }
-
     @Bean
     public JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint() {
         return new JwtAuthenticationEntryPoint();
@@ -30,5 +19,11 @@ public class CommonSecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public JwtTokenUtil jwtTokenUtil(@Value("${jwt.secret}") String secret,
+                                     @Value("${jwt.expiration}") long expiration) {
+        return new JwtTokenUtil(secret, expiration);
     }
 }
