@@ -1,5 +1,7 @@
 package org.example.orderService.service;
 
+import org.example.common.exception.ResourceNotFoundException;
+import org.example.common.model.OrderStatus;
 import org.example.orderService.client.PaymentServiceClient;
 import org.example.orderService.dto.PaymentRequest;
 import org.example.orderService.dto.PaymentResponse;
@@ -7,6 +9,7 @@ import org.example.orderService.model.OrderEntity;
 import org.example.orderService.repository.OrderRepository;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -32,8 +35,9 @@ public class OrderService {
         return orderRepository.findById(id);
     }
 
+    @Transactional
     public OrderEntity createOrder(OrderEntity order) {
-        order.setStatus("PENDING");
+        order.setStatus(OrderStatus.PENDING);
         order.setCreatedAt(LocalDateTime.now());
         OrderEntity savedOrder = orderRepository.save(order);
 
@@ -45,6 +49,7 @@ public class OrderService {
     }
 
     @Async
+    @Transactional
     public CompletableFuture<OrderEntity> processOrderPaymentAsync(OrderEntity order) {
         try {
             PaymentRequest paymentRequest = PaymentRequest.builder()
@@ -52,11 +57,6 @@ public class OrderService {
                     .amount(order.getAmount())
                     .currency(order.getCurrency())
                     .paymentMethod(order.getPaymentMethod())
-                    .cardNumber(order.getCardNumber())
-                    .cardExpiryMonth(order.getCardExpiryMonth())
-                    .cardExpiryYear(order.getCardExpiryYear())
-                    .cardCvv(order.getCardCvv())
-                    .cardHolderName(order.getCardHolderName())
                     .build();
 
             return paymentServiceClient.processPaymentCompletable(paymentRequest)
@@ -64,9 +64,9 @@ public class OrderService {
                         order.setPaymentTransactionId(paymentResponse.getTransactionId());
 
                         if ("SUCCESS".equals(paymentResponse.getStatus())) {
-                            order.setStatus("PAID");
+                            order.setStatus(OrderStatus.PAID);
                         } else if ("FAILED".equals(paymentResponse.getStatus())) {
-                            order.setStatus("PAYMENT_FAILED");
+                            order.setStatus(OrderStatus.PAYMENT_FAILED);
                             order.setStatusMessage(paymentResponse.getErrorMessage());
                         }
 
@@ -74,13 +74,13 @@ public class OrderService {
                         return orderRepository.save(order);
                     })
                     .exceptionally(ex -> {
-                        order.setStatus("PAYMENT_ERROR");
+                        order.setStatus(OrderStatus.PAYMENT_ERROR);
                         order.setStatusMessage("Error processing payment: " + ex.getMessage());
                         order.setUpdatedAt(LocalDateTime.now());
                         return orderRepository.save(order);
                     });
         } catch (Exception e) {
-            order.setStatus("PAYMENT_ERROR");
+            order.setStatus(OrderStatus.PAYMENT_ERROR);
             order.setStatusMessage("Error processing payment: " + e.getMessage());
             order.setUpdatedAt(LocalDateTime.now());
             OrderEntity savedOrder = orderRepository.save(order);
@@ -88,74 +88,73 @@ public class OrderService {
         }
     }
 
+    @Transactional
     public OrderEntity processOrderPayment(OrderEntity order) {
         try {
             return processOrderPaymentAsync(order).get();
         } catch (Exception e) {
-            order.setStatus("PAYMENT_ERROR");
+            order.setStatus(OrderStatus.PAYMENT_ERROR);
             order.setStatusMessage("Error processing payment: " + e.getMessage());
             order.setUpdatedAt(LocalDateTime.now());
             return orderRepository.save(order);
         }
     }
 
-    public OrderEntity updateOrderStatus(Long id, String status) {
-        Optional<OrderEntity> optionalOrder = orderRepository.findById(id);
-        if (optionalOrder.isPresent()) {
-            OrderEntity order = optionalOrder.get();
-            order.setStatus(status);
-            order.setUpdatedAt(LocalDateTime.now());
-            return orderRepository.save(order);
-        }
-        throw new RuntimeException("Order not found with id: " + id);
+    @Transactional
+    public OrderEntity updateOrderStatus(Long id, OrderStatus status) {
+        OrderEntity order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", id));
+        order.setStatus(status);
+        order.setUpdatedAt(LocalDateTime.now());
+        return orderRepository.save(order);
     }
 
     @Async
+    @Transactional
     public CompletableFuture<OrderEntity> refundOrderPaymentAsync(Long id) {
-        Optional<OrderEntity> optionalOrder = orderRepository.findById(id);
-        if (optionalOrder.isPresent()) {
-            OrderEntity order = optionalOrder.get();
+        OrderEntity order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", id));
 
-            if (order.getPaymentTransactionId() == null) {
-                CompletableFuture<OrderEntity> future = new CompletableFuture<>();
-                future.completeExceptionally(new RuntimeException("Order has no payment transaction to refund"));
-                return future;
-            }
-
-            return paymentServiceClient.refundPaymentCompletable(order.getPaymentTransactionId())
-                    .thenApply(refundResponse -> {
-                        if ("REFUNDED".equals(refundResponse.getStatus())) {
-                            order.setStatus("REFUNDED");
-                        } else {
-                            order.setStatus("REFUND_FAILED");
-                            order.setStatusMessage(refundResponse.getErrorMessage());
-                        }
-
-                        order.setUpdatedAt(LocalDateTime.now());
-                        return orderRepository.save(order);
-                    })
-                    .exceptionally(ex -> {
-                        order.setStatus("REFUND_ERROR");
-                        order.setStatusMessage("Error processing refund: " + ex.getMessage());
-                        order.setUpdatedAt(LocalDateTime.now());
-                        return orderRepository.save(order);
-                    });
+        if (order.getPaymentTransactionId() == null) {
+            CompletableFuture<OrderEntity> future = new CompletableFuture<>();
+            future.completeExceptionally(new ResourceNotFoundException("Order has no payment transaction to refund"));
+            return future;
         }
 
-        CompletableFuture<OrderEntity> future = new CompletableFuture<>();
-        future.completeExceptionally(new RuntimeException("Order not found with id: " + id));
-        return future;
+        return paymentServiceClient.refundPaymentCompletable(order.getPaymentTransactionId())
+                .thenApply(refundResponse -> {
+                    if ("REFUNDED".equals(refundResponse.getStatus())) {
+                        order.setStatus(OrderStatus.REFUNDED);
+                    } else {
+                        order.setStatus(OrderStatus.REFUND_FAILED);
+                        order.setStatusMessage(refundResponse.getErrorMessage());
+                    }
+
+                    order.setUpdatedAt(LocalDateTime.now());
+                    return orderRepository.save(order);
+                })
+                .exceptionally(ex -> {
+                    order.setStatus(OrderStatus.REFUND_ERROR);
+                    order.setStatusMessage("Error processing refund: " + ex.getMessage());
+                    order.setUpdatedAt(LocalDateTime.now());
+                    return orderRepository.save(order);
+                });
     }
 
+    @Transactional
     public OrderEntity refundOrderPayment(Long id) {
         try {
             return refundOrderPaymentAsync(id).get();
         } catch (Exception e) {
-            throw new RuntimeException("Error refunding payment: " + e.getMessage(), e);
+            throw new ResourceNotFoundException("Error refunding payment: " + e.getMessage());
         }
     }
 
+    @Transactional
     public void deleteOrder(Long id) {
+        if (!orderRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Order", "id", id);
+        }
         orderRepository.deleteById(id);
     }
 
@@ -163,7 +162,7 @@ public class OrderService {
         return orderRepository.findByCustomerName(customerName);
     }
 
-    public List<OrderEntity> getOrdersByStatus(String status) {
+    public List<OrderEntity> getOrdersByStatus(OrderStatus status) {
         return orderRepository.findByStatus(status);
     }
 
@@ -173,29 +172,23 @@ public class OrderService {
 
     @Async
     public CompletableFuture<PaymentResponse> getOrderPaymentStatusAsync(Long id) {
-        Optional<OrderEntity> optionalOrder = orderRepository.findById(id);
-        if (optionalOrder.isPresent()) {
-            OrderEntity order = optionalOrder.get();
+        OrderEntity order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", id));
 
-            if (order.getPaymentTransactionId() == null) {
-                CompletableFuture<PaymentResponse> future = new CompletableFuture<>();
-                future.completeExceptionally(new RuntimeException("Order has no payment transaction"));
-                return future;
-            }
-
-            return paymentServiceClient.getPaymentStatusCompletable(order.getPaymentTransactionId());
+        if (order.getPaymentTransactionId() == null) {
+            CompletableFuture<PaymentResponse> future = new CompletableFuture<>();
+            future.completeExceptionally(new ResourceNotFoundException("Order has no payment transaction"));
+            return future;
         }
 
-        CompletableFuture<PaymentResponse> future = new CompletableFuture<>();
-        future.completeExceptionally(new RuntimeException("Order not found with id: " + id));
-        return future;
+        return paymentServiceClient.getPaymentStatusCompletable(order.getPaymentTransactionId());
     }
 
     public PaymentResponse getOrderPaymentStatus(Long id) {
         try {
             return getOrderPaymentStatusAsync(id).get();
         } catch (Exception e) {
-            throw new RuntimeException("Error getting payment status: " + e.getMessage(), e);
+            throw new ResourceNotFoundException("Error getting payment status: " + e.getMessage());
         }
     }
 }

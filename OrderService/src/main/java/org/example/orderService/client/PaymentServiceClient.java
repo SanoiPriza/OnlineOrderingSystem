@@ -1,52 +1,38 @@
 package org.example.orderService.client;
 
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
-import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import io.github.resilience4j.reactor.circuitbreaker.operator.CircuitBreakerOperator;
 import org.example.orderService.dto.PaymentRequest;
 import org.example.orderService.dto.PaymentResponse;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
-import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 
 @Component
 public class PaymentServiceClient {
 
-    private final WebClient.Builder webClientBuilder;
+    private final WebClient webClient;
     private final CircuitBreaker circuitBreaker;
-    private final String paymentServiceUrl;
 
     public PaymentServiceClient(
             WebClient.Builder webClientBuilder,
-            @Value("${payment.service.url:http://localhost:8083}") String paymentServiceUrl) {
-        this.webClientBuilder = webClientBuilder;
-        this.paymentServiceUrl = paymentServiceUrl;
-
-        CircuitBreakerConfig circuitBreakerConfig = CircuitBreakerConfig.custom()
-                .failureRateThreshold(50)
-                .waitDurationInOpenState(Duration.ofMillis(1000))
-                .slidingWindowSize(10)
-                .permittedNumberOfCallsInHalfOpenState(3)
+            CircuitBreakerRegistry circuitBreakerRegistry) {
+        this.webClient = webClientBuilder
+                .baseUrl("lb://payment-service")
                 .build();
-
-        CircuitBreakerRegistry circuitBreakerRegistry = CircuitBreakerRegistry.of(circuitBreakerConfig);
         this.circuitBreaker = circuitBreakerRegistry.circuitBreaker("paymentService");
     }
 
     public CompletableFuture<PaymentResponse> processPaymentCompletable(PaymentRequest paymentRequest) {
-        return processPayment(paymentRequest)
-                .toFuture();
+        return processPayment(paymentRequest).toFuture();
     }
 
     public Mono<PaymentResponse> processPayment(PaymentRequest paymentRequest) {
-        return webClientBuilder.build()
-                .post()
-                .uri(paymentServiceUrl + "/api/payments/process")
+        return webClient.post()
+                .uri("/api/payments/process")
                 .bodyValue(paymentRequest)
                 .retrieve()
                 .bodyToMono(PaymentResponse.class)
@@ -60,14 +46,12 @@ public class PaymentServiceClient {
     }
 
     public CompletableFuture<PaymentResponse> getPaymentStatusCompletable(String transactionId) {
-        return getPaymentStatus(transactionId)
-                .toFuture();
+        return getPaymentStatus(transactionId).toFuture();
     }
 
     public Mono<PaymentResponse> getPaymentStatus(String transactionId) {
-        return webClientBuilder.build()
-                .get()
-                .uri(paymentServiceUrl + "/api/payments/" + transactionId)
+        return webClient.get()
+                .uri("/api/payments/{transactionId}", transactionId)
                 .retrieve()
                 .bodyToMono(PaymentResponse.class)
                 .transformDeferred(CircuitBreakerOperator.of(circuitBreaker))
@@ -80,14 +64,12 @@ public class PaymentServiceClient {
     }
 
     public CompletableFuture<PaymentResponse> refundPaymentCompletable(String transactionId) {
-        return refundPayment(transactionId)
-                .toFuture();
+        return refundPayment(transactionId).toFuture();
     }
 
     public Mono<PaymentResponse> refundPayment(String transactionId) {
-        return webClientBuilder.build()
-                .post()
-                .uri(paymentServiceUrl + "/api/payments/" + transactionId + "/refund")
+        return webClient.post()
+                .uri("/api/payments/{transactionId}/refund", transactionId)
                 .retrieve()
                 .bodyToMono(PaymentResponse.class)
                 .transformDeferred(CircuitBreakerOperator.of(circuitBreaker))

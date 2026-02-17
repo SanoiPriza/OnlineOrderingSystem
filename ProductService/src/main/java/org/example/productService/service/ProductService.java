@@ -1,9 +1,11 @@
 package org.example.productService.service;
 
+import org.example.common.exception.ResourceNotFoundException;
 import org.example.productService.model.Product;
 import org.example.productService.repository.ProductRepository;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -29,17 +31,17 @@ public class ProductService {
     }
 
     public Product updateProduct(String id, Product productDetails) {
-        Optional<Product> optionalProduct = productRepository.findById(id);
-        if (optionalProduct.isPresent()) {
-            Product existingProduct = optionalProduct.get();
-            existingProduct.setName(productDetails.getName());
-            existingProduct.setPrice(productDetails.getPrice());
-            return productRepository.save(existingProduct);
-        }
-        throw new RuntimeException("Product not found with id: " + id);
+        Product existingProduct = productRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", id));
+        existingProduct.setName(productDetails.getName());
+        existingProduct.setPrice(productDetails.getPrice());
+        return productRepository.save(existingProduct);
     }
 
     public void deleteProduct(String id) {
+        if (!productRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Product", "id", id);
+        }
         productRepository.deleteById(id);
     }
 
@@ -47,11 +49,11 @@ public class ProductService {
         return productRepository.findByName(name);
     }
 
-    public List<Product> findByPriceLessThan(double price) {
+    public List<Product> findByPriceLessThan(BigDecimal price) {
         return productRepository.findByPriceLessThan(price);
     }
 
-    public List<Product> findByPriceGreaterThan(double price) {
+    public List<Product> findByPriceGreaterThan(BigDecimal price) {
         return productRepository.findByPriceGreaterThan(price);
     }
 }

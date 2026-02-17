@@ -15,26 +15,16 @@ import org.springframework.web.reactive.function.client.WebClient;
 @EnableDiscoveryClient
 @EnableFeignClients
 @Import(CommonSecurityConfig.class)
-@ComponentScan(
-        basePackages = {
+@ComponentScan(basePackages = {
                 "org.example.paymentService",
                 "org.example.common.security"
-        },
-        excludeFilters = @ComponentScan.Filter(
-                type = FilterType.ASSIGNABLE_TYPE,
-                classes = {
-                        org.example.common.security.jwt.JwtTokenUtil.class,
-                        org.example.common.security.jwt.JwtAuthenticationFilter.class
-                }
-        )
-)
+}, excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = {
+                org.example.common.security.jwt.JwtTokenUtil.class,
+                org.example.common.security.jwt.JwtAuthenticationFilter.class
+}))
 public class PaymentServiceApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(PaymentServiceApplication.class, args);
-    }
+        public static void main(String[] args) {
+                SpringApplication.run(PaymentServiceApplication.class, args);
+        }
 
-    @Bean
-    public WebClient.Builder webClientBuilder() {
-        return WebClient.builder();
-    }
 }

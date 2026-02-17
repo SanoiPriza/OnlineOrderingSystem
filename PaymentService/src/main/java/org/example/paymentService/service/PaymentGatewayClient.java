@@ -14,7 +14,6 @@ import java.util.Map;
 public class PaymentGatewayClient {
 
     private final WebClient webClient;
-    private final String apiKey;
 
     public PaymentGatewayClient(
             WebClient.Builder webClientBuilder,
@@ -24,7 +23,6 @@ public class PaymentGatewayClient {
                 .baseUrl(gatewayUrl)
                 .defaultHeader("X-API-Key", apiKey)
                 .build();
-        this.apiKey = apiKey;
     }
 
     public PaymentResponse processPayment(String transactionId, PaymentRequest paymentRequest) {
@@ -33,7 +31,6 @@ public class PaymentGatewayClient {
         requestMap.put("amount", paymentRequest.getAmount());
         requestMap.put("currency", paymentRequest.getCurrency());
         requestMap.put("paymentMethod", paymentRequest.getPaymentMethod());
-        requestMap.put("cardDetails", createCardDetailsMap(paymentRequest));
 
         return webClient.post()
                 .uri("/process")
@@ -56,15 +53,5 @@ public class PaymentGatewayClient {
                 .retrieve()
                 .bodyToMono(PaymentResponse.class)
                 .block();
-    }
-
-    private Map<String, String> createCardDetailsMap(PaymentRequest paymentRequest) {
-        Map<String, String> cardDetails = new HashMap<>();
-        cardDetails.put("number", paymentRequest.getCardNumber());
-        cardDetails.put("expiryMonth", paymentRequest.getCardExpiryMonth());
-        cardDetails.put("expiryYear", paymentRequest.getCardExpiryYear());
-        cardDetails.put("cvv", paymentRequest.getCardCvv());
-        cardDetails.put("holderName", paymentRequest.getCardHolderName());
-        return cardDetails;
     }
 }

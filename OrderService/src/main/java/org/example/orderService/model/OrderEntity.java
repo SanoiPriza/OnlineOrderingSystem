@@ -1,12 +1,19 @@
 package org.example.orderService.model;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Column;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import org.example.common.model.OrderStatus;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -16,20 +23,27 @@ public class OrderEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotBlank(message = "Customer name is required")
     @Column(nullable = false)
     private String customerName;
 
+    @NotBlank(message = "Product ID is required")
     @Column(nullable = false)
     private String productId;
 
+    @NotNull(message = "Quantity is required")
+    @Positive(message = "Quantity must be positive")
     @Column(nullable = false)
     private Integer quantity;
 
-    @Column(nullable = false)
-    private Double totalPrice;
+    @NotNull(message = "Total price is required")
+    @Positive(message = "Total price must be positive")
+    @Column(nullable = false, precision = 19, scale = 4)
+    private BigDecimal totalPrice;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String status;
+    private OrderStatus status;
 
     @Column
     private String statusMessage;
@@ -37,26 +51,11 @@ public class OrderEntity {
     @Column
     private String paymentMethod;
 
-    @Column
-    private Double amount;
+    @Column(precision = 19, scale = 4)
+    private BigDecimal amount;
 
     @Column
     private String currency;
-
-    @Column
-    private String cardNumber;
-
-    @Column
-    private String cardExpiryMonth;
-
-    @Column
-    private String cardExpiryYear;
-
-    @Column
-    private String cardCvv;
-
-    @Column
-    private String cardHolderName;
 
     @Column
     private String paymentTransactionId;
@@ -69,7 +68,7 @@ public class OrderEntity {
     public OrderEntity() {
     }
 
-    public OrderEntity(String customerName, String productId, Integer quantity, Double totalPrice) {
+    public OrderEntity(String customerName, String productId, Integer quantity, BigDecimal totalPrice) {
         this.customerName = customerName;
         this.productId = productId;
         this.quantity = quantity;
@@ -108,19 +107,19 @@ public class OrderEntity {
         this.quantity = quantity;
     }
 
-    public Double getTotalPrice() {
+    public BigDecimal getTotalPrice() {
         return totalPrice;
     }
 
-    public void setTotalPrice(Double totalPrice) {
+    public void setTotalPrice(BigDecimal totalPrice) {
         this.totalPrice = totalPrice;
     }
 
-    public String getStatus() {
+    public OrderStatus getStatus() {
         return status;
     }
 
-    public void setStatus(String status) {
+    public void setStatus(OrderStatus status) {
         this.status = status;
     }
 
@@ -140,11 +139,11 @@ public class OrderEntity {
         this.paymentMethod = paymentMethod;
     }
 
-    public Double getAmount() {
+    public BigDecimal getAmount() {
         return amount;
     }
 
-    public void setAmount(Double amount) {
+    public void setAmount(BigDecimal amount) {
         this.amount = amount;
     }
 
@@ -154,46 +153,6 @@ public class OrderEntity {
 
     public void setCurrency(String currency) {
         this.currency = currency;
-    }
-
-    public String getCardNumber() {
-        return cardNumber;
-    }
-
-    public void setCardNumber(String cardNumber) {
-        this.cardNumber = cardNumber;
-    }
-
-    public String getCardExpiryMonth() {
-        return cardExpiryMonth;
-    }
-
-    public void setCardExpiryMonth(String cardExpiryMonth) {
-        this.cardExpiryMonth = cardExpiryMonth;
-    }
-
-    public String getCardExpiryYear() {
-        return cardExpiryYear;
-    }
-
-    public void setCardExpiryYear(String cardExpiryYear) {
-        this.cardExpiryYear = cardExpiryYear;
-    }
-
-    public String getCardCvv() {
-        return cardCvv;
-    }
-
-    public void setCardCvv(String cardCvv) {
-        this.cardCvv = cardCvv;
-    }
-
-    public String getCardHolderName() {
-        return cardHolderName;
-    }
-
-    public void setCardHolderName(String cardHolderName) {
-        this.cardHolderName = cardHolderName;
     }
 
     public String getPaymentTransactionId() {

@@ -1,14 +1,11 @@
 package org.example.paymentService.controller;
 
+import jakarta.validation.Valid;
 import org.example.paymentService.model.PaymentRequest;
 import org.example.paymentService.model.PaymentResponse;
 import org.example.paymentService.service.PaymentService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/payments")
@@ -21,7 +18,7 @@ public class PaymentController {
     }
 
     @PostMapping("/process")
-    public ResponseEntity<PaymentResponse> processPayment(@RequestBody PaymentRequest paymentRequest) {
+    public ResponseEntity<PaymentResponse> processPayment(@Valid @RequestBody PaymentRequest paymentRequest) {
         PaymentResponse response = paymentService.processPayment(paymentRequest);
         return ResponseEntity.ok(response);
     }
@@ -38,7 +35,7 @@ public class PaymentController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/status")
+    @GetMapping("/health")
     public String getStatus() {
         return "Payment Service is running!";
     }

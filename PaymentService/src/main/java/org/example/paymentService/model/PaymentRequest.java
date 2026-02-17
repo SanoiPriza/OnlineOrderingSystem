@@ -1,42 +1,56 @@
 package org.example.paymentService.model;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+
+import java.math.BigDecimal;
+
 public class PaymentRequest {
+    @NotBlank(message = "Order ID is required")
     private String orderId;
-    private Double amount;
+
+    @NotNull(message = "Amount is required")
+    @Positive(message = "Amount must be positive")
+    private BigDecimal amount;
+
     private String currency;
+
+    @NotBlank(message = "Payment method is required")
     private String paymentMethod;
-    private String cardNumber;
-    private String cardExpiryMonth;
-    private String cardExpiryYear;
-    private String cardCvv;
-    private String cardHolderName;
 
-    public PaymentRequest() {}
+    public PaymentRequest() {
+    }
 
-    public String getOrderId() { return orderId; }
-    public void setOrderId(String orderId) { this.orderId = orderId; }
-    
-    public Double getAmount() { return amount; }
-    public void setAmount(Double amount) { this.amount = amount; }
-    
-    public String getCurrency() { return currency; }
-    public void setCurrency(String currency) { this.currency = currency; }
-    
-    public String getPaymentMethod() { return paymentMethod; }
-    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
-    
-    public String getCardNumber() { return cardNumber; }
-    public void setCardNumber(String cardNumber) { this.cardNumber = cardNumber; }
-    
-    public String getCardExpiryMonth() { return cardExpiryMonth; }
-    public void setCardExpiryMonth(String cardExpiryMonth) { this.cardExpiryMonth = cardExpiryMonth; }
-    
-    public String getCardExpiryYear() { return cardExpiryYear; }
-    public void setCardExpiryYear(String cardExpiryYear) { this.cardExpiryYear = cardExpiryYear; }
-    
-    public String getCardCvv() { return cardCvv; }
-    public void setCardCvv(String cardCvv) { this.cardCvv = cardCvv; }
-    
-    public String getCardHolderName() { return cardHolderName; }
-    public void setCardHolderName(String cardHolderName) { this.cardHolderName = cardHolderName; }
+    public String getOrderId() {
+        return orderId;
+    }
+
+    public void setOrderId(String orderId) {
+        this.orderId = orderId;
+    }
+
+    public BigDecimal getAmount() {
+        return amount;
+    }
+
+    public void setAmount(BigDecimal amount) {
+        this.amount = amount;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(String currency) {
+        this.currency = currency;
+    }
+
+    public String getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public void setPaymentMethod(String paymentMethod) {
+        this.paymentMethod = paymentMethod;
+    }
 }
