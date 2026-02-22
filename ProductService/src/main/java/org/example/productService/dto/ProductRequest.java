@@ -1,19 +1,13 @@
-package org.example.productService.model;
+package org.example.productService.dto;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.math.BigDecimal;
 
-@Document(collection = "products")
-public class Product {
-    @Id
-    private String id;
-
+public class ProductRequest {
     @NotBlank(message = "Product name is required")
     private String name;
 
@@ -25,26 +19,13 @@ public class Product {
     @Min(value = 0, message = "Stock quantity cannot be negative")
     private Integer stockQuantity;
 
-    public Product() {
+    public ProductRequest() {
     }
 
-    public Product(String name, BigDecimal price) {
-        this.name = name;
-        this.price = price;
-    }
-
-    public Product(String name, BigDecimal price, Integer stockQuantity) {
+    public ProductRequest(String name, BigDecimal price, Integer stockQuantity) {
         this.name = name;
         this.price = price;
         this.stockQuantity = stockQuantity;
-    }
-
-    public String getId() {
-        return id;
-    }
-
-    public void setId(String id) {
-        this.id = id;
     }
 
     public String getName() {
@@ -69,5 +50,34 @@ public class Product {
 
     public void setStockQuantity(Integer stockQuantity) {
         this.stockQuantity = stockQuantity;
+    }
+
+    public static ProductRequestBuilder builder() {
+        return new ProductRequestBuilder();
+    }
+
+    public static class ProductRequestBuilder {
+        private String name;
+        private BigDecimal price;
+        private Integer stockQuantity;
+
+        public ProductRequestBuilder name(String name) {
+            this.name = name;
+            return this;
+        }
+
+        public ProductRequestBuilder price(BigDecimal price) {
+            this.price = price;
+            return this;
+        }
+
+        public ProductRequestBuilder stockQuantity(Integer stockQuantity) {
+            this.stockQuantity = stockQuantity;
+            return this;
+        }
+
+        public ProductRequest build() {
+            return new ProductRequest(name, price, stockQuantity);
+        }
     }
 }

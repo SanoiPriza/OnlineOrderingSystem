@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -38,6 +39,7 @@ public class PaymentGatewayClient {
                 .bodyValue(requestMap)
                 .retrieve()
                 .bodyToMono(PaymentResponse.class)
+                .subscribeOn(Schedulers.boundedElastic())
                 .block();
     }
 
@@ -52,6 +54,7 @@ public class PaymentGatewayClient {
                 .bodyValue(requestMap)
                 .retrieve()
                 .bodyToMono(PaymentResponse.class)
+                .subscribeOn(Schedulers.boundedElastic())
                 .block();
     }
 }

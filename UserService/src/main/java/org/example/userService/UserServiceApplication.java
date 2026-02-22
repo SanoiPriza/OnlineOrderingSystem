@@ -67,7 +67,8 @@ public class UserServiceApplication {
                 );
 
                 Set<Role> adminRoles = new HashSet<>();
-                adminRoles.add(roleRepository.findByName("ADMIN").get());
+                adminRoles.add(roleRepository.findByName("ADMIN")
+                        .orElseThrow(() -> new IllegalStateException("ADMIN role not found — seeding order may be wrong")));
                 admin.setRoles(adminRoles);
 
                 userRepository.save(admin);

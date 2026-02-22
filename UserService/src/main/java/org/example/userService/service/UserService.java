@@ -1,7 +1,10 @@
 
 package org.example.userService.service;
 
+import org.example.userService.dto.UserCreateRequest;
 import org.example.userService.dto.UserDto;
+import org.example.userService.dto.UserUpdateRequest;
+import org.example.userService.mapper.UserMapper;
 import org.example.userService.model.Role;
 import org.example.userService.model.User;
 import org.example.userService.repository.RoleRepository;
@@ -23,17 +26,22 @@ public class UserService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final UserMapper userMapper;
 
-    public UserService(UserRepository userRepository, RoleRepository roleRepository, PasswordEncoder passwordEncoder) {
+    public UserService(UserRepository userRepository,
+                       RoleRepository roleRepository,
+                       PasswordEncoder passwordEncoder,
+                       UserMapper userMapper) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
+        this.userMapper = userMapper;
     }
 
     @Transactional
-    public UserDto createUser(User user, Set<String> roleNames) {
+    public UserDto createUser(UserCreateRequest request, Set<String> roleNames) {
+        User user = userMapper.toEntity(request);
         user.setPassword(passwordEncoder.encode(user.getPassword()));
-
         user.setCreatedAt(LocalDateTime.now());
 
         Set<Role> roles = new HashSet<>();
@@ -45,35 +53,32 @@ public class UserService {
         user.setRoles(roles);
 
         User savedUser = userRepository.save(user);
-
-        return convertToDto(savedUser);
+        return userMapper.toDto(savedUser);
     }
 
     public List<UserDto> getAllUsers() {
         return userRepository.findAll().stream()
-                .map(this::convertToDto)
+                .map(userMapper::toDto)
                 .collect(Collectors.toList());
     }
 
     public Optional<UserDto> getUserById(Long id) {
         return userRepository.findById(id)
-                .map(this::convertToDto);
+                .map(userMapper::toDto);
     }
 
     public Optional<UserDto> getUserByUsername(String username) {
         return userRepository.findByUsername(username)
-                .map(this::convertToDto);
+                .map(userMapper::toDto);
     }
 
     @Transactional
-    public Optional<UserDto> updateUser(Long id, User userDetails) {
+    public Optional<UserDto> updateUser(Long id, UserUpdateRequest request) {
         return userRepository.findById(id)
                 .map(user -> {
-                    user.setFirstName(userDetails.getFirstName());
-                    user.setLastName(userDetails.getLastName());
-                    user.setEmail(userDetails.getEmail());
+                    userMapper.updateEntityFromRequest(request, user);
                     user.setUpdatedAt(LocalDateTime.now());
-                    return convertToDto(userRepository.save(user));
+                    return userMapper.toDto(userRepository.save(user));
                 });
     }
 
@@ -89,7 +94,7 @@ public class UserService {
                     }
                     user.setRoles(roles);
                     user.setUpdatedAt(LocalDateTime.now());
-                    return convertToDto(userRepository.save(user));
+                    return userMapper.toDto(userRepository.save(user));
                 });
     }
 
@@ -102,7 +107,7 @@ public class UserService {
                     }
                     user.setPassword(passwordEncoder.encode(newPassword));
                     user.setUpdatedAt(LocalDateTime.now());
-                    return convertToDto(userRepository.save(user));
+                    return userMapper.toDto(userRepository.save(user));
                 });
     }
 
@@ -112,7 +117,7 @@ public class UserService {
                 .map(user -> {
                     user.setActive(false);
                     user.setUpdatedAt(LocalDateTime.now());
-                    return convertToDto(userRepository.save(user));
+                    return userMapper.toDto(userRepository.save(user));
                 });
     }
 
@@ -122,31 +127,12 @@ public class UserService {
                 .map(user -> {
                     user.setActive(true);
                     user.setUpdatedAt(LocalDateTime.now());
-                    return convertToDto(userRepository.save(user));
+                    return userMapper.toDto(userRepository.save(user));
                 });
     }
 
     @Transactional
     public void deleteUser(Long id) {
         userRepository.deleteById(id);
-    }
-
-    private UserDto convertToDto(User user) {
-        UserDto dto = new UserDto();
-        dto.setId(user.getId());
-        dto.setUsername(user.getUsername());
-        dto.setEmail(user.getEmail());
-        dto.setFirstName(user.getFirstName());
-        dto.setLastName(user.getLastName());
-        dto.setActive(user.isActive());
-        dto.setCreatedAt(user.getCreatedAt());
-        dto.setUpdatedAt(user.getUpdatedAt());
-        
-        Set<String> roleNames = user.getRoles().stream()
-                .map(Role::getName)
-                .collect(Collectors.toSet());
-        dto.setRoles(roleNames);
-        
-        return dto;
     }
 }

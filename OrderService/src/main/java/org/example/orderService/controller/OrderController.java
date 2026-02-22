@@ -2,7 +2,10 @@ package org.example.orderService.controller;
 
 import jakarta.validation.Valid;
 import org.example.common.model.OrderStatus;
+import org.example.orderService.dto.OrderRequest;
+import org.example.orderService.dto.OrderResponse;
 import org.example.orderService.dto.PaymentResponse;
+import org.example.orderService.mapper.OrderMapper;
 import org.example.orderService.model.OrderEntity;
 import org.example.orderService.service.OrderService;
 import org.springframework.http.ResponseEntity;
@@ -17,50 +20,55 @@ import java.util.concurrent.CompletableFuture;
 @RequestMapping("/api/orders")
 public class OrderController {
     private final OrderService orderService;
+    private final OrderMapper orderMapper;
     private static final long ASYNC_TIMEOUT = 10000L;
 
-    public OrderController(OrderService orderService) {
+    public OrderController(OrderService orderService, OrderMapper orderMapper) {
         this.orderService = orderService;
+        this.orderMapper = orderMapper;
     }
 
     @GetMapping
-    public List<OrderEntity> getAllOrders() {
+    public List<OrderResponse> getAllOrders() {
         return orderService.getAllOrders();
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<OrderEntity> getOrderById(@PathVariable Long id) {
-        Optional<OrderEntity> order = orderService.getOrderById(id);
+    public ResponseEntity<OrderResponse> getOrderById(@PathVariable Long id) {
+        Optional<OrderResponse> order = orderService.getOrderById(id);
         return order.map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @PostMapping
-    public OrderEntity createOrder(@Valid @RequestBody OrderEntity order) {
+    public OrderResponse createOrder(@Valid @RequestBody OrderRequest order) {
         return orderService.createOrder(order);
     }
 
     @PutMapping("/{id}/status")
-    public ResponseEntity<OrderEntity> updateOrderStatus(
+    public ResponseEntity<OrderResponse> updateOrderStatus(
             @PathVariable Long id,
             @RequestParam OrderStatus status) {
-        OrderEntity updatedOrder = orderService.updateOrderStatus(id, status);
+        OrderResponse updatedOrder = orderService.updateOrderStatus(id, status);
         return ResponseEntity.ok(updatedOrder);
     }
 
     @PostMapping("/{id}/payment")
-    public DeferredResult<ResponseEntity<OrderEntity>> processOrderPayment(@PathVariable Long id) {
-        DeferredResult<ResponseEntity<OrderEntity>> deferredResult = new DeferredResult<>(ASYNC_TIMEOUT);
+    public DeferredResult<ResponseEntity<OrderResponse>> processOrderPayment(@PathVariable Long id) {
+        DeferredResult<ResponseEntity<OrderResponse>> deferredResult = new DeferredResult<>(ASYNC_TIMEOUT);
 
-        Optional<OrderEntity> optionalOrder = orderService.getOrderById(id);
-        if (optionalOrder.isPresent()) {
-            CompletableFuture<OrderEntity> future = orderService.processOrderPaymentAsync(optionalOrder.get());
-
-            future.thenAccept(processedOrder -> deferredResult.setResult(ResponseEntity.ok(processedOrder)))
-                    .exceptionally(ex -> {
-                        deferredResult.setErrorResult(ResponseEntity.badRequest().build());
-                        return null;
-                    });
+        if (orderService.getOrderById(id).isPresent()) {
+            CompletableFuture<OrderEntity> future = orderService.processOrderPaymentAsync(id);
+            future.thenAccept(processedOrder -> {
+                if (processedOrder != null) {
+                    deferredResult.setResult(ResponseEntity.ok(orderMapper.toResponse(processedOrder)));
+                } else {
+                    deferredResult.setResult(ResponseEntity.notFound().build());
+                }
+            }).exceptionally(ex -> {
+                deferredResult.setErrorResult(ResponseEntity.badRequest().build());
+                return null;
+            });
         } else {
             deferredResult.setResult(ResponseEntity.notFound().build());
         }
@@ -84,16 +92,21 @@ public class OrderController {
     }
 
     @PostMapping("/{id}/refund")
-    public DeferredResult<ResponseEntity<OrderEntity>> refundOrderPayment(@PathVariable Long id) {
-        DeferredResult<ResponseEntity<OrderEntity>> deferredResult = new DeferredResult<>(ASYNC_TIMEOUT);
+    public DeferredResult<ResponseEntity<OrderResponse>> refundOrderPayment(@PathVariable Long id) {
+        DeferredResult<ResponseEntity<OrderResponse>> deferredResult = new DeferredResult<>(ASYNC_TIMEOUT);
 
         CompletableFuture<OrderEntity> future = orderService.refundOrderPaymentAsync(id);
 
-        future.thenAccept(refundedOrder -> deferredResult.setResult(ResponseEntity.ok(refundedOrder)))
-                .exceptionally(ex -> {
-                    deferredResult.setErrorResult(ResponseEntity.notFound().build());
-                    return null;
-                });
+        future.thenAccept(refundedOrder -> {
+            if (refundedOrder != null) {
+                deferredResult.setResult(ResponseEntity.ok(orderMapper.toResponse(refundedOrder)));
+            } else {
+                deferredResult.setResult(ResponseEntity.notFound().build());
+            }
+        }).exceptionally(ex -> {
+            deferredResult.setErrorResult(ResponseEntity.notFound().build());
+            return null;
+        });
 
         return deferredResult;
     }
@@ -105,12 +118,12 @@ public class OrderController {
     }
 
     @GetMapping("/customer/{customerName}")
-    public List<OrderEntity> getOrdersByCustomerName(@PathVariable String customerName) {
+    public List<OrderResponse> getOrdersByCustomerName(@PathVariable String customerName) {
         return orderService.getOrdersByCustomerName(customerName);
     }
 
     @GetMapping("/status/{status}")
-    public List<OrderEntity> getOrdersByStatus(@PathVariable OrderStatus status) {
+    public List<OrderResponse> getOrdersByStatus(@PathVariable OrderStatus status) {
         return orderService.getOrdersByStatus(status);
     }
 

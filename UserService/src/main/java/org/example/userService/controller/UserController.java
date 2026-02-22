@@ -1,7 +1,8 @@
 package org.example.userService.controller;
 
+import org.example.userService.dto.UserCreateRequest;
 import org.example.userService.dto.UserDto;
-import org.example.userService.model.User;
+import org.example.userService.dto.UserUpdateRequest;
 import org.example.userService.service.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -45,14 +46,14 @@ public class UserController {
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<UserDto> createUser(@RequestBody User user, @RequestParam Set<String> roles) {
+    public ResponseEntity<UserDto> createUser(@RequestBody UserCreateRequest user, @RequestParam Set<String> roles) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(userService.createUser(user, roles));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN') or @userSecurity.isCurrentUser(#id)")
-    public ResponseEntity<UserDto> updateUser(@PathVariable Long id, @RequestBody User userDetails) {
+    public ResponseEntity<UserDto> updateUser(@PathVariable Long id, @RequestBody UserUpdateRequest userDetails) {
         return userService.updateUser(id, userDetails)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());

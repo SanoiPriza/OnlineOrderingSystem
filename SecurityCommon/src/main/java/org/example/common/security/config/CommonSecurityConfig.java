@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.client.RestTemplate;
 
 @Configuration
 public class CommonSecurityConfig {
@@ -23,7 +24,12 @@ public class CommonSecurityConfig {
 
     @Bean
     public JwtTokenUtil jwtTokenUtil(@Value("${jwt.secret}") String secret,
-                                     @Value("${jwt.expiration}") long expiration) {
+            @Value("${jwt.expiration}") long expiration) {
         return new JwtTokenUtil(secret, expiration);
+    }
+
+    @Bean
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
     }
 }

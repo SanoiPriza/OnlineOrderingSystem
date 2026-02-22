@@ -181,34 +181,6 @@ public class AuthController {
         }
     }
 
-    @GetMapping("/verify")
-    public ResponseEntity<?> verifyToken(@RequestHeader("Authorization") String authHeader) {
-        try {
-            String token = extractTokenFromHeader(authHeader);
-            if (token == null) {
-                return ResponseEntity.badRequest().body(createErrorResponse("Invalid authorization header"));
-            }
-
-            String username = jwtTokenUtil.extractUsername(token);
-            if (username != null) {
-                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-                boolean isValid = jwtTokenUtil.validateToken(token, userDetails);
-
-                Map<String, Object> response = new HashMap<>();
-                response.put("valid", isValid);
-                response.put("username", username);
-                response.put("authorities", userDetails.getAuthorities().stream()
-                        .map(GrantedAuthority::getAuthority)
-                        .collect(Collectors.toList()));
-
-                return ResponseEntity.ok(response);
-            }
-            return ResponseEntity.badRequest().body(createErrorResponse("Invalid token"));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(createErrorResponse("Token verification failed"));
-        }
-    }
-
     private String extractTokenFromHeader(String authHeader) {
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             return authHeader.substring(7);

@@ -1,14 +1,14 @@
 package org.example.productService.controller;
 
 import jakarta.validation.Valid;
-import org.example.productService.model.Product;
+import org.example.productService.dto.ProductRequest;
+import org.example.productService.dto.ProductResponse;
 import org.example.productService.service.ProductService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/products")
@@ -21,27 +21,27 @@ public class ProductController {
     }
 
     @GetMapping
-    public List<Product> getAllProducts() {
+    public List<ProductResponse> getAllProducts() {
         return productService.getAllProducts();
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Product> getProductById(@PathVariable String id) {
-        Optional<Product> product = productService.getProductById(id);
-        return product.map(ResponseEntity::ok)
+    public ResponseEntity<ProductResponse> getProductById(@PathVariable String id) {
+        return productService.getProductById(id)
+                .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @PostMapping
-    public Product createProduct(@Valid @RequestBody Product product) {
+    public ProductResponse createProduct(@Valid @RequestBody ProductRequest product) {
         return productService.createProduct(product);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Product> updateProduct(
+    public ResponseEntity<ProductResponse> updateProduct(
             @PathVariable String id,
-            @Valid @RequestBody Product productDetails) {
-        Product updatedProduct = productService.updateProduct(id, productDetails);
+            @Valid @RequestBody ProductRequest productDetails) {
+        ProductResponse updatedProduct = productService.updateProduct(id, productDetails);
         return ResponseEntity.ok(updatedProduct);
     }
 
@@ -52,18 +52,30 @@ public class ProductController {
     }
 
     @GetMapping("/search/name/{name}")
-    public List<Product> findByName(@PathVariable String name) {
+    public List<ProductResponse> findByName(@PathVariable String name) {
         return productService.findByName(name);
     }
 
     @GetMapping("/search/price-less-than/{price}")
-    public List<Product> findByPriceLessThan(@PathVariable BigDecimal price) {
+    public List<ProductResponse> findByPriceLessThan(@PathVariable BigDecimal price) {
         return productService.findByPriceLessThan(price);
     }
 
     @GetMapping("/search/price-greater-than/{price}")
-    public List<Product> findByPriceGreaterThan(@PathVariable BigDecimal price) {
+    public List<ProductResponse> findByPriceGreaterThan(@PathVariable BigDecimal price) {
         return productService.findByPriceGreaterThan(price);
+    }
+
+    @GetMapping("/{id}/stock")
+    public ResponseEntity<Integer> getStock(@PathVariable String id) {
+        return ResponseEntity.ok(productService.getStockQuantity(id));
+    }
+
+    @PutMapping("/{id}/stock/decrement")
+    public ResponseEntity<ProductResponse> decrementStock(
+            @PathVariable String id,
+            @RequestParam int quantity) {
+        return ResponseEntity.ok(productService.decrementStock(id, quantity));
     }
 
     @GetMapping("/health")

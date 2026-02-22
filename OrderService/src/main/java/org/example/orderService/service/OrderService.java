@@ -5,6 +5,9 @@ import org.example.common.model.OrderStatus;
 import org.example.orderService.client.PaymentServiceClient;
 import org.example.orderService.dto.PaymentRequest;
 import org.example.orderService.dto.PaymentResponse;
+import org.example.orderService.dto.OrderRequest;
+import org.example.orderService.dto.OrderResponse;
+import org.example.orderService.mapper.OrderMapper;
 import org.example.orderService.model.OrderEntity;
 import org.example.orderService.repository.OrderRepository;
 import org.springframework.scheduling.annotation.Async;
@@ -21,36 +24,43 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final PaymentServiceClient paymentServiceClient;
+    private final OrderMapper orderMapper;
 
-    public OrderService(OrderRepository orderRepository, PaymentServiceClient paymentServiceClient) {
+    public OrderService(OrderRepository orderRepository, PaymentServiceClient paymentServiceClient,
+                        OrderMapper orderMapper) {
         this.orderRepository = orderRepository;
         this.paymentServiceClient = paymentServiceClient;
+        this.orderMapper = orderMapper;
     }
 
-    public List<OrderEntity> getAllOrders() {
-        return orderRepository.findAll();
+    public List<OrderResponse> getAllOrders() {
+        return orderRepository.findAll().stream()
+                .map(orderMapper::toResponse)
+                .toList();
     }
 
-    public Optional<OrderEntity> getOrderById(Long id) {
-        return orderRepository.findById(id);
+    public Optional<OrderResponse> getOrderById(Long id) {
+        return orderRepository.findById(id).map(orderMapper::toResponse);
     }
 
     @Transactional
-    public OrderEntity createOrder(OrderEntity order) {
+    public OrderResponse createOrder(OrderRequest orderRequest) {
+        OrderEntity order = orderMapper.toEntity(orderRequest);
         order.setStatus(OrderStatus.PENDING);
         order.setCreatedAt(LocalDateTime.now());
         OrderEntity savedOrder = orderRepository.save(order);
 
         if (order.getPaymentMethod() != null && order.getAmount() != null) {
-            processOrderPaymentAsync(savedOrder);
+            processOrderPaymentAsync(savedOrder.getId());
         }
 
-        return savedOrder;
+        return orderMapper.toResponse(savedOrder);
     }
 
     @Async
-    @Transactional
-    public CompletableFuture<OrderEntity> processOrderPaymentAsync(OrderEntity order) {
+    public CompletableFuture<OrderEntity> processOrderPaymentAsync(Long orderId) {
+        OrderEntity order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
         try {
             PaymentRequest paymentRequest = PaymentRequest.builder()
                     .orderId(order.getId().toString())
@@ -61,23 +71,30 @@ public class OrderService {
 
             return paymentServiceClient.processPaymentCompletable(paymentRequest)
                     .thenApply(paymentResponse -> {
-                        order.setPaymentTransactionId(paymentResponse.getTransactionId());
+                        OrderEntity fresh = orderRepository.findById(orderId)
+                                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
+
+                        fresh.setPaymentTransactionId(paymentResponse.getTransactionId());
 
                         if ("SUCCESS".equals(paymentResponse.getStatus())) {
-                            order.setStatus(OrderStatus.PAID);
+                            fresh.setStatus(OrderStatus.PAID);
                         } else if ("FAILED".equals(paymentResponse.getStatus())) {
-                            order.setStatus(OrderStatus.PAYMENT_FAILED);
-                            order.setStatusMessage(paymentResponse.getErrorMessage());
+                            fresh.setStatus(OrderStatus.PAYMENT_FAILED);
+                            fresh.setStatusMessage(paymentResponse.getErrorMessage());
                         }
 
-                        order.setUpdatedAt(LocalDateTime.now());
-                        return orderRepository.save(order);
+                        fresh.setUpdatedAt(LocalDateTime.now());
+                        return orderRepository.save(fresh);
                     })
                     .exceptionally(ex -> {
-                        order.setStatus(OrderStatus.PAYMENT_ERROR);
-                        order.setStatusMessage("Error processing payment: " + ex.getMessage());
-                        order.setUpdatedAt(LocalDateTime.now());
-                        return orderRepository.save(order);
+                        OrderEntity fresh = orderRepository.findById(orderId).orElse(null);
+                        if (fresh != null) {
+                            fresh.setStatus(OrderStatus.PAYMENT_ERROR);
+                            fresh.setStatusMessage("Error processing payment: " + ex.getMessage());
+                            fresh.setUpdatedAt(LocalDateTime.now());
+                            return orderRepository.save(fresh);
+                        }
+                        return null;
                     });
         } catch (Exception e) {
             order.setStatus(OrderStatus.PAYMENT_ERROR);
@@ -89,10 +106,12 @@ public class OrderService {
     }
 
     @Transactional
-    public OrderEntity processOrderPayment(OrderEntity order) {
+    public OrderEntity processOrderPayment(Long orderId) {
         try {
-            return processOrderPaymentAsync(order).get();
+            return processOrderPaymentAsync(orderId).get();
         } catch (Exception e) {
+            OrderEntity order = orderRepository.findById(orderId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
             order.setStatus(OrderStatus.PAYMENT_ERROR);
             order.setStatusMessage("Error processing payment: " + e.getMessage());
             order.setUpdatedAt(LocalDateTime.now());
@@ -101,16 +120,15 @@ public class OrderService {
     }
 
     @Transactional
-    public OrderEntity updateOrderStatus(Long id, OrderStatus status) {
+    public OrderResponse updateOrderStatus(Long id, OrderStatus status) {
         OrderEntity order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "id", id));
         order.setStatus(status);
         order.setUpdatedAt(LocalDateTime.now());
-        return orderRepository.save(order);
+        return orderMapper.toResponse(orderRepository.save(order));
     }
 
     @Async
-    @Transactional
     public CompletableFuture<OrderEntity> refundOrderPaymentAsync(Long id) {
         OrderEntity order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "id", id));
@@ -123,28 +141,35 @@ public class OrderService {
 
         return paymentServiceClient.refundPaymentCompletable(order.getPaymentTransactionId())
                 .thenApply(refundResponse -> {
+                    OrderEntity fresh = orderRepository.findById(id)
+                            .orElseThrow(() -> new ResourceNotFoundException("Order", "id", id));
+
                     if ("REFUNDED".equals(refundResponse.getStatus())) {
-                        order.setStatus(OrderStatus.REFUNDED);
+                        fresh.setStatus(OrderStatus.REFUNDED);
                     } else {
-                        order.setStatus(OrderStatus.REFUND_FAILED);
-                        order.setStatusMessage(refundResponse.getErrorMessage());
+                        fresh.setStatus(OrderStatus.REFUND_FAILED);
+                        fresh.setStatusMessage(refundResponse.getErrorMessage());
                     }
 
-                    order.setUpdatedAt(LocalDateTime.now());
-                    return orderRepository.save(order);
+                    fresh.setUpdatedAt(LocalDateTime.now());
+                    return orderRepository.save(fresh);
                 })
                 .exceptionally(ex -> {
-                    order.setStatus(OrderStatus.REFUND_ERROR);
-                    order.setStatusMessage("Error processing refund: " + ex.getMessage());
-                    order.setUpdatedAt(LocalDateTime.now());
-                    return orderRepository.save(order);
+                    OrderEntity fresh = orderRepository.findById(id).orElse(null);
+                    if (fresh != null) {
+                        fresh.setStatus(OrderStatus.REFUND_ERROR);
+                        fresh.setStatusMessage("Error processing refund: " + ex.getMessage());
+                        fresh.setUpdatedAt(LocalDateTime.now());
+                        return orderRepository.save(fresh);
+                    }
+                    return null;
                 });
     }
 
     @Transactional
-    public OrderEntity refundOrderPayment(Long id) {
+    public OrderResponse refundOrderPayment(Long id) {
         try {
-            return refundOrderPaymentAsync(id).get();
+            return orderMapper.toResponse(refundOrderPaymentAsync(id).get());
         } catch (Exception e) {
             throw new ResourceNotFoundException("Error refunding payment: " + e.getMessage());
         }
@@ -158,16 +183,22 @@ public class OrderService {
         orderRepository.deleteById(id);
     }
 
-    public List<OrderEntity> getOrdersByCustomerName(String customerName) {
-        return orderRepository.findByCustomerName(customerName);
+    public List<OrderResponse> getOrdersByCustomerName(String customerName) {
+        return orderRepository.findByCustomerName(customerName).stream()
+                .map(orderMapper::toResponse)
+                .toList();
     }
 
-    public List<OrderEntity> getOrdersByStatus(OrderStatus status) {
-        return orderRepository.findByStatus(status);
+    public List<OrderResponse> getOrdersByStatus(OrderStatus status) {
+        return orderRepository.findByStatus(status).stream()
+                .map(orderMapper::toResponse)
+                .toList();
     }
 
-    public List<OrderEntity> getOrdersByProductId(String productId) {
-        return orderRepository.findByProductId(productId);
+    public List<OrderResponse> getOrdersByProductId(String productId) {
+        return orderRepository.findByProductId(productId).stream()
+                .map(orderMapper::toResponse)
+                .toList();
     }
 
     @Async
