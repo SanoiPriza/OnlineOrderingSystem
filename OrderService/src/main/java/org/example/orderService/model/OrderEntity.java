@@ -60,6 +60,9 @@ public class OrderEntity {
     @Column
     private String paymentTransactionId;
 
+    @Column
+    private String username;
+
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
@@ -161,6 +164,14 @@ public class OrderEntity {
 
     public void setPaymentTransactionId(String paymentTransactionId) {
         this.paymentTransactionId = paymentTransactionId;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
     }
 
     public LocalDateTime getCreatedAt() {

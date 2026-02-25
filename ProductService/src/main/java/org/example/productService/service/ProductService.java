@@ -8,6 +8,7 @@ import org.example.productService.mapper.ProductMapper;
 import org.example.productService.model.Product;
 import org.example.productService.repository.ProductRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -36,12 +37,14 @@ public class ProductService {
                 .map(productMapper::toResponse);
     }
 
+    @Transactional
     public ProductResponse createProduct(ProductRequest request) {
         Product product = productMapper.toEntity(request);
         Product savedProduct = productRepository.save(product);
         return productMapper.toResponse(savedProduct);
     }
 
+    @Transactional
     public ProductResponse updateProduct(String id, ProductRequest request) {
         Product existingProduct = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", "id", id));
@@ -50,6 +53,7 @@ public class ProductService {
         return productMapper.toResponse(updatedProduct);
     }
 
+    @Transactional
     public void deleteProduct(String id) {
         if (!productRepository.existsById(id)) {
             throw new ResourceNotFoundException("Product", "id", id);
@@ -75,22 +79,36 @@ public class ProductService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional
     public ProductResponse decrementStock(String id, int quantity) {
         if (quantity <= 0) {
             throw new InvalidOperationException("Decrement quantity must be greater than zero");
         }
-        Product product = productRepository.findById(id)
+        Product existing = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", "id", id));
 
-        int available = product.getStockQuantity() != null ? product.getStockQuantity() : 0;
-        if (available < quantity) {
+        int updatedRows = productRepository.atomicDecrementStock(id, quantity);
+        if (updatedRows == 0) {
             throw new InvalidOperationException(
-                    "Insufficient stock for product '" + product.getName() + "'. "
-                            + "Requested: " + quantity + ", available: " + available);
+                    "Insufficient stock for product '" + existing.getName() + "'. "
+                            + "Requested: " + quantity
+                            + ", available: "
+                            + (existing.getStockQuantity() != null ? existing.getStockQuantity() : 0));
         }
+        // Re-read after atomic update to return current state.
+        return productMapper.toResponse(productRepository.findById(id).orElseThrow());
+    }
 
-        product.setStockQuantity(available - quantity);
-        return productMapper.toResponse(productRepository.save(product));
+    @Transactional
+    public ProductResponse incrementStock(String id, int quantity) {
+        if (quantity <= 0) {
+            throw new InvalidOperationException("Increment quantity must be greater than zero");
+        }
+        if (!productRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Product", "id", id);
+        }
+        productRepository.atomicIncrementStock(id, quantity);
+        return productMapper.toResponse(productRepository.findById(id).orElseThrow());
     }
 
     public int getStockQuantity(String id) {

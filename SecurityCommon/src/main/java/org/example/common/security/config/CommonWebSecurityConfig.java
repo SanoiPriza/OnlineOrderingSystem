@@ -1,10 +1,10 @@
 package org.example.common.security.config;
 
+import org.example.common.security.filter.InternalServiceAuthFilter;
 import org.example.common.security.jwt.DelegatedJwtAuthenticationFilter;
 import org.example.common.security.jwt.JwtAuthenticationEntryPoint;
 import org.example.common.security.jwt.JwtAuthenticationFilter;
 import org.example.common.security.jwt.JwtTokenUtil;
-import org.example.common.security.service.AuthValidationService;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -23,15 +23,36 @@ public abstract class CommonWebSecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
-                        .anyRequest().authenticated()
-                )
+                        .anyRequest().authenticated())
                 .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint(jwtAuthEntryPoint)
-                )
+                        .authenticationEntryPoint(jwtAuthEntryPoint))
                 .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                )
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
+    }
+
+    protected SecurityFilterChain configureDelegatedSecurityFilterChain(
+            HttpSecurity http,
+            DelegatedJwtAuthenticationFilter delegatedAuthFilter,
+            JwtAuthenticationEntryPoint jwtAuthEntryPoint,
+            String internalServiceToken) throws Exception {
+
+        InternalServiceAuthFilter serviceFilter = new InternalServiceAuthFilter(internalServiceToken);
+
+        http
+                .csrf(AbstractHttpConfigurer::disable)
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/actuator/**").permitAll()
+                        .anyRequest().authenticated())
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(jwtAuthEntryPoint))
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // Internal service token auth runs before JWT auth
+                .addFilterBefore(serviceFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(delegatedAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
@@ -45,14 +66,11 @@ public abstract class CommonWebSecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/**").permitAll()
-                        .anyRequest().authenticated()
-                )
+                        .anyRequest().authenticated())
                 .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint(jwtAuthEntryPoint)
-                )
+                        .authenticationEntryPoint(jwtAuthEntryPoint))
                 .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                )
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(delegatedAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -65,7 +83,7 @@ public abstract class CommonWebSecurityConfig {
     }
 
     protected DelegatedJwtAuthenticationFilter createDelegatedJwtAuthenticationFilter(
-            AuthValidationService authValidationService) {
-        return new DelegatedJwtAuthenticationFilter(authValidationService);
+            JwtTokenUtil jwtTokenUtil) {
+        return new DelegatedJwtAuthenticationFilter(jwtTokenUtil);
     }
 }

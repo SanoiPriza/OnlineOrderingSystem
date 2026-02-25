@@ -29,16 +29,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         
         final String authorizationHeader = request.getHeader("Authorization");
 
-        String username = null;
-        String jwt = null;
+        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
-        if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
-            jwt = authorizationHeader.substring(7);
-            try {
-                username = jwtTokenUtil.extractUsername(jwt);
-            } catch (Exception e) {
-                logger.error("Could not extract username from token", e);
-            }
+        String jwt = authorizationHeader.substring(7);
+        String username = null;
+        try {
+            username = jwtTokenUtil.extractUsername(jwt);
+        } catch (Exception e) {
+            logger.error("Could not extract username from token", e);
         }
 
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {

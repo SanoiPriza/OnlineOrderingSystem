@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -26,6 +27,19 @@ public class PaymentService {
 
     @Transactional
     public PaymentResponse processPayment(PaymentRequest paymentRequest) {
+        Optional<Payment> existing = paymentRepository.findByOrderId(paymentRequest.getOrderId());
+        if (existing.isPresent()) {
+            Payment found = existing.get();
+            if (found.getStatus() == PaymentStatus.SUCCESS || found.getStatus() == PaymentStatus.PENDING) {
+                PaymentResponse idempotentResponse = new PaymentResponse();
+                idempotentResponse.setTransactionId(found.getTransactionId());
+                idempotentResponse.setStatus(found.getStatus().name());
+                idempotentResponse.setGatewayTransactionId(found.getGatewayTransactionId());
+                idempotentResponse.setErrorMessage(found.getErrorMessage());
+                return idempotentResponse;
+            }
+        }
+
         Payment payment = new Payment();
         payment.setOrderId(paymentRequest.getOrderId());
         payment.setAmount(paymentRequest.getAmount());
@@ -38,9 +52,9 @@ public class PaymentService {
         Payment savedPayment = paymentRepository.save(payment);
 
         try {
-            PaymentResponse gatewayResponse = paymentGatewayClient.processPayment(
-                    savedPayment.getTransactionId(),
-                    paymentRequest);
+            PaymentResponse gatewayResponse = paymentGatewayClient
+                    .processPayment(savedPayment.getTransactionId(), paymentRequest)
+                    .block();
 
             String gatewayStatus = gatewayResponse.getStatus();
             if ("SUCCESS".equals(gatewayStatus)) {
@@ -88,15 +102,16 @@ public class PaymentService {
         Payment payment = paymentRepository.findByTransactionId(transactionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Payment", "transactionId", transactionId));
 
-        if (payment.getStatus() != PaymentStatus.SUCCESS) {
+        if (!payment.getStatus().canTransitionTo(PaymentStatus.REFUNDED)) {
             throw new InvalidOperationException(
-                    "Cannot refund payment that is not successful. Current status: " + payment.getStatus());
+                    "Cannot refund payment in status: " + payment.getStatus() +
+                    ". Only SUCCESS payments can be refunded.");
         }
 
         try {
-            PaymentResponse refundResponse = paymentGatewayClient.refundPayment(
-                    payment.getTransactionId(),
-                    payment.getGatewayTransactionId());
+            PaymentResponse refundResponse = paymentGatewayClient
+                    .refundPayment(payment.getTransactionId(), payment.getGatewayTransactionId())
+                    .block();
 
             payment.setStatus(PaymentStatus.REFUNDED);
             payment.setRefundedAt(LocalDateTime.now());

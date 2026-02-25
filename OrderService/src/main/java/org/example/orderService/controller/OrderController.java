@@ -9,6 +9,7 @@ import org.example.orderService.mapper.OrderMapper;
 import org.example.orderService.model.OrderEntity;
 import org.example.orderService.service.OrderService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.context.request.async.DeferredResult;
 
@@ -29,8 +30,14 @@ public class OrderController {
     }
 
     @GetMapping
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
     public List<OrderResponse> getAllOrders() {
         return orderService.getAllOrders();
+    }
+
+    @GetMapping("/my")
+    public List<OrderResponse> getMyOrders() {
+        return orderService.getMyOrders();
     }
 
     @GetMapping("/{id}")
@@ -118,6 +125,7 @@ public class OrderController {
     }
 
     @GetMapping("/customer/{customerName}")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
     public List<OrderResponse> getOrdersByCustomerName(@PathVariable String customerName) {
         return orderService.getOrdersByCustomerName(customerName);
     }

@@ -7,10 +7,11 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Profile;
 
 import java.math.BigDecimal;
 
-@SpringBootApplication
+@SpringBootApplication(scanBasePackages = { "org.example.productService", "org.example.common" })
 @EnableDiscoveryClient
 public class ProductServiceApplication {
 
@@ -19,11 +20,13 @@ public class ProductServiceApplication {
     }
 
     @Bean
+    @Profile("dev")
     public CommandLineRunner init(ProductRepository repository) {
         return args -> {
-            repository.deleteAll();
-            repository.save(new Product("Laptop", BigDecimal.valueOf(4000)));
-            repository.save(new Product("Phone", BigDecimal.valueOf(1000)));
+            if (repository.count() == 0) {
+                repository.save(new Product("Laptop", BigDecimal.valueOf(4000), 50));
+                repository.save(new Product("Phone", BigDecimal.valueOf(1000), 100));
+            }
         };
     }
 }

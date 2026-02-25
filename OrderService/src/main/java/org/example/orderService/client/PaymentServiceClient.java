@@ -9,19 +9,31 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 
 @Component
 public class PaymentServiceClient {
+
+    private static final Duration CALL_TIMEOUT = Duration.ofSeconds(10);
 
     private final WebClient webClient;
     private final CircuitBreaker circuitBreaker;
 
     public PaymentServiceClient(
             WebClient.Builder webClientBuilder,
-            CircuitBreakerRegistry circuitBreakerRegistry) {
+            CircuitBreakerRegistry circuitBreakerRegistry,
+            InternalTokenProvider internalTokenProvider) {
         this.webClient = webClientBuilder
                 .baseUrl("lb://payment-service")
+                .filter((request, next) -> {
+                    org.springframework.web.reactive.function.client.ClientRequest newRequest = org.springframework.web.reactive.function.client.ClientRequest
+                            .from(request)
+                            .header(org.springframework.http.HttpHeaders.AUTHORIZATION,
+                                    "Bearer " + internalTokenProvider.getToken())
+                            .build();
+                    return next.exchange(newRequest);
+                })
                 .build();
         this.circuitBreaker = circuitBreakerRegistry.circuitBreaker("paymentService");
     }
@@ -37,6 +49,7 @@ public class PaymentServiceClient {
                 .retrieve()
                 .bodyToMono(PaymentResponse.class)
                 .transformDeferred(CircuitBreakerOperator.of(circuitBreaker))
+                .timeout(CALL_TIMEOUT)
                 .onErrorResume(e -> {
                     PaymentResponse errorResponse = new PaymentResponse();
                     errorResponse.setStatus("FAILED");
@@ -55,6 +68,7 @@ public class PaymentServiceClient {
                 .retrieve()
                 .bodyToMono(PaymentResponse.class)
                 .transformDeferred(CircuitBreakerOperator.of(circuitBreaker))
+                .timeout(CALL_TIMEOUT)
                 .onErrorResume(e -> {
                     PaymentResponse errorResponse = new PaymentResponse();
                     errorResponse.setStatus("UNKNOWN");
@@ -73,6 +87,7 @@ public class PaymentServiceClient {
                 .retrieve()
                 .bodyToMono(PaymentResponse.class)
                 .transformDeferred(CircuitBreakerOperator.of(circuitBreaker))
+                .timeout(CALL_TIMEOUT)
                 .onErrorResume(e -> {
                     PaymentResponse errorResponse = new PaymentResponse();
                     errorResponse.setStatus("REFUND_FAILED");

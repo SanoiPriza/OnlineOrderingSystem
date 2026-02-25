@@ -78,6 +78,13 @@ public class ProductController {
         return ResponseEntity.ok(productService.decrementStock(id, quantity));
     }
 
+    @PutMapping("/{id}/stock/increment")
+    public ResponseEntity<ProductResponse> incrementStock(
+            @PathVariable String id,
+            @RequestParam int quantity) {
+        return ResponseEntity.ok(productService.incrementStock(id, quantity));
+    }
+
     @GetMapping("/health")
     public String getStatus() {
         return "Product Service is running!";

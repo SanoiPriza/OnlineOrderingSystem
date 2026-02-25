@@ -3,6 +3,7 @@ package org.example.userService.controller;
 import org.example.common.security.jwt.JwtTokenUtil;
 import org.example.userService.dto.AuthRequest;
 import org.example.userService.dto.AuthResponse;
+import org.example.userService.security.TokenBlacklist;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -28,14 +29,17 @@ public class AuthController {
     private final JwtTokenUtil jwtTokenUtil;
     private final UserDetailsService userDetailsService;
     private final AuthenticationManager authenticationManager;
+    private final TokenBlacklist tokenBlacklist;
 
     public AuthController(
             JwtTokenUtil jwtTokenUtil,
             @Qualifier("userServiceUserDetailsService") UserDetailsService userDetailsService,
-            AuthenticationManager authenticationManager) {
+            AuthenticationManager authenticationManager,
+            TokenBlacklist tokenBlacklist) {
         this.jwtTokenUtil = jwtTokenUtil;
         this.userDetailsService = userDetailsService;
         this.authenticationManager = authenticationManager;
+        this.tokenBlacklist = tokenBlacklist;
     }
 
     @PostMapping("/login")
@@ -50,7 +54,7 @@ public class AuthController {
 
             UserDetails userDetails = userDetailsService.loadUserByUsername(authRequest.getUsername());
 
-            String token = jwtTokenUtil.generateToken(userDetails);
+            String token = jwtTokenUtil.generateToken(userDetails, userDetails.getAuthorities());
 
             AuthResponse response = new AuthResponse(
                     token,
@@ -148,6 +152,22 @@ public class AuthController {
         }
     }
 
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.ok(Map.of("message", "Logged out"));
+        }
+        try {
+            String token = authHeader.substring(7);
+            String jti = jwtTokenUtil.extractJti(token);
+            long expiryEpoch = jwtTokenUtil.extractExpiration(token).toInstant().getEpochSecond();
+            if (jti != null) {
+                tokenBlacklist.add(jti, expiryEpoch);
+            }
+        } catch (Exception ignored) {}
+        return ResponseEntity.ok(Map.of("message", "Logged out successfully"));
+    }
+
     @PostMapping("/refresh")
     public ResponseEntity<?> refreshToken(@RequestHeader("Authorization") String authHeader) {
         try {
@@ -160,7 +180,7 @@ public class AuthController {
             if (username != null) {
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
                 if (jwtTokenUtil.validateToken(token, userDetails)) {
-                    String newToken = jwtTokenUtil.generateToken(userDetails);
+                    String newToken = jwtTokenUtil.generateToken(userDetails, userDetails.getAuthorities());
 
                     AuthResponse response = new AuthResponse(
                             newToken,

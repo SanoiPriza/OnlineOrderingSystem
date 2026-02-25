@@ -6,13 +6,16 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.scheduler.Schedulers;
+import reactor.core.publisher.Mono;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
 @Service
 public class PaymentGatewayClient {
+
+    private static final Duration GATEWAY_TIMEOUT = Duration.ofSeconds(10);
 
     private final WebClient webClient;
 
@@ -26,35 +29,33 @@ public class PaymentGatewayClient {
                 .build();
     }
 
-    public PaymentResponse processPayment(String transactionId, PaymentRequest paymentRequest) {
-        Map<String, Object> requestMap = new HashMap<>();
-        requestMap.put("transactionId", transactionId);
-        requestMap.put("amount", paymentRequest.getAmount());
-        requestMap.put("currency", paymentRequest.getCurrency());
-        requestMap.put("paymentMethod", paymentRequest.getPaymentMethod());
+    public Mono<PaymentResponse> processPayment(String transactionId, PaymentRequest paymentRequest) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("transactionId", transactionId);
+        body.put("amount", paymentRequest.getAmount());
+        body.put("currency", paymentRequest.getCurrency());
+        body.put("paymentMethod", paymentRequest.getPaymentMethod());
 
         return webClient.post()
                 .uri("/process")
                 .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(requestMap)
+                .bodyValue(body)
                 .retrieve()
                 .bodyToMono(PaymentResponse.class)
-                .subscribeOn(Schedulers.boundedElastic())
-                .block();
+                .timeout(GATEWAY_TIMEOUT);
     }
 
-    public PaymentResponse refundPayment(String transactionId, String gatewayTransactionId) {
-        Map<String, Object> requestMap = new HashMap<>();
-        requestMap.put("transactionId", transactionId);
-        requestMap.put("gatewayTransactionId", gatewayTransactionId);
+    public Mono<PaymentResponse> refundPayment(String transactionId, String gatewayTransactionId) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("transactionId", transactionId);
+        body.put("gatewayTransactionId", gatewayTransactionId);
 
         return webClient.post()
                 .uri("/refund")
                 .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(requestMap)
+                .bodyValue(body)
                 .retrieve()
                 .bodyToMono(PaymentResponse.class)
-                .subscribeOn(Schedulers.boundedElastic())
-                .block();
+                .timeout(GATEWAY_TIMEOUT);
     }
 }

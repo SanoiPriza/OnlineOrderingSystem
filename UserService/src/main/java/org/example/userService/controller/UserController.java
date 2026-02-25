@@ -1,5 +1,7 @@
 package org.example.userService.controller;
 
+import jakarta.validation.Valid;
+import org.example.userService.dto.ChangePasswordRequest;
 import org.example.userService.dto.UserCreateRequest;
 import org.example.userService.dto.UserDto;
 import org.example.userService.dto.UserUpdateRequest;
@@ -71,9 +73,8 @@ public class UserController {
     @PreAuthorize("hasRole('ADMIN') or @userSecurity.isCurrentUser(#id)")
     public ResponseEntity<UserDto> changePassword(
             @PathVariable Long id,
-            @RequestParam String currentPassword,
-            @RequestParam String newPassword) {
-        return userService.changePassword(id, currentPassword, newPassword)
+            @Valid @RequestBody ChangePasswordRequest request) {
+        return userService.changePassword(id, request.getCurrentPassword(), request.getNewPassword())
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }

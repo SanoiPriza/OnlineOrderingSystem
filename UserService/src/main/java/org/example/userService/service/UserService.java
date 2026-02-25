@@ -1,6 +1,7 @@
-
 package org.example.userService.service;
 
+import org.example.common.exception.InvalidOperationException;
+import org.example.common.exception.ResourceNotFoundException;
 import org.example.userService.dto.UserCreateRequest;
 import org.example.userService.dto.UserDto;
 import org.example.userService.dto.UserUpdateRequest;
@@ -47,7 +48,7 @@ public class UserService {
         Set<Role> roles = new HashSet<>();
         for (String roleName : roleNames) {
             Role role = roleRepository.findByName(roleName)
-                    .orElseThrow(() -> new RuntimeException("Role not found: " + roleName));
+                    .orElseThrow(() -> new ResourceNotFoundException("Role", "name", roleName));
             roles.add(role);
         }
         user.setRoles(roles);
@@ -89,7 +90,7 @@ public class UserService {
                     Set<Role> roles = new HashSet<>();
                     for (String roleName : roleNames) {
                         Role role = roleRepository.findByName(roleName)
-                                .orElseThrow(() -> new RuntimeException("Role not found: " + roleName));
+                                .orElseThrow(() -> new ResourceNotFoundException("Role", "name", roleName));
                         roles.add(role);
                     }
                     user.setRoles(roles);
@@ -103,7 +104,7 @@ public class UserService {
         return userRepository.findById(id)
                 .map(user -> {
                     if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
-                        throw new RuntimeException("Current password is incorrect");
+                        throw new InvalidOperationException("Current password is incorrect");
                     }
                     user.setPassword(passwordEncoder.encode(newPassword));
                     user.setUpdatedAt(LocalDateTime.now());
