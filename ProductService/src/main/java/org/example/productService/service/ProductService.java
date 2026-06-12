@@ -95,7 +95,6 @@ public class ProductService {
                             + ", available: "
                             + (existing.getStockQuantity() != null ? existing.getStockQuantity() : 0));
         }
-        // Re-read after atomic update to return current state.
         return productMapper.toResponse(productRepository.findById(id).orElseThrow());
     }
 

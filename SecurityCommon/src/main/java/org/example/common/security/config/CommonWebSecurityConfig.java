@@ -50,7 +50,6 @@ public abstract class CommonWebSecurityConfig {
                         .authenticationEntryPoint(jwtAuthEntryPoint))
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                // Internal service token auth runs before JWT auth
                 .addFilterBefore(serviceFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(delegatedAuthFilter, UsernamePasswordAuthenticationFilter.class);
 

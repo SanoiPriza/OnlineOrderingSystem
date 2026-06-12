@@ -1,5 +1,7 @@
 package org.example.orderService.model;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -10,6 +12,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Entity
 @Table(name = "outbox_events")
@@ -57,12 +60,23 @@ public class OutboxEvent {
     public OutboxEvent() {
     }
 
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    private static String buildPayload(String productId, int quantity) {
+        try {
+            return MAPPER.writeValueAsString(Map.of("productId", productId, "quantity", quantity));
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException(
+                    "Failed to serialize outbox event payload for productId='" + productId + "'", e);
+        }
+    }
+
     public static OutboxEvent stockRestore(Long orderId, String productId, int quantity) {
         OutboxEvent event = new OutboxEvent();
         event.setEventType(EventType.STOCK_RESTORE);
         event.setStatus(EventStatus.PENDING);
         event.setOrderId(orderId);
-        event.setPayload("{\"productId\":\"" + productId + "\",\"quantity\":" + quantity + "}");
+        event.setPayload(buildPayload(productId, quantity));
         event.setRetryCount(0);
         event.setCreatedAt(LocalDateTime.now());
         return event;
@@ -73,7 +87,7 @@ public class OutboxEvent {
         event.setEventType(EventType.ORDER_CREATED);
         event.setStatus(EventStatus.PENDING);
         event.setOrderId(orderId);
-        event.setPayload("{\"productId\":\"" + productId + "\",\"quantity\":" + quantity + "}");
+        event.setPayload(buildPayload(productId, quantity));
         event.setRetryCount(0);
         event.setCreatedAt(LocalDateTime.now());
         return event;
@@ -84,7 +98,7 @@ public class OutboxEvent {
         event.setEventType(EventType.STOCK_COMPENSATION);
         event.setStatus(EventStatus.PENDING);
         event.setOrderId(orderId);
-        event.setPayload("{\"productId\":\"" + productId + "\",\"quantity\":" + quantity + "}");
+        event.setPayload(buildPayload(productId, quantity));
         event.setRetryCount(0);
         event.setCreatedAt(LocalDateTime.now());
         return event;

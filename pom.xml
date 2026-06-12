@@ -8,7 +8,7 @@
     <artifactId>OnlineOrderingSystem</artifactId>
     <version>1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
-
+    
     <modules>
         <module>OrderService</module>
         <module>ProductService</module>
@@ -17,6 +17,7 @@
         <module>ApiGateway</module>
         <module>UserService</module>
         <module>SecurityCommon</module>
+        <module>AdminService</module>
     </modules>
 
     <properties>
@@ -25,6 +26,7 @@
         <spring-cloud.version>2025.0.1</spring-cloud.version>
         <jjwt.version>0.13.0</jjwt.version>
         <resilience4j.version>2.3.0</resilience4j.version>
+        <mapstruct.version>1.5.5.Final</mapstruct.version>
     </properties>
 
     <dependencyManagement>
@@ -157,6 +159,22 @@
     </dependencyManagement>
 
     <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <version>${spring-boot.version}</version>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>repackage</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+            </plugins>
+        </pluginManagement>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -165,12 +183,6 @@
                 <configuration>
                     <release>${java.version}</release>
                 </configuration>
-            </plugin>
-
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-                <version>${spring-boot.version}</version>
             </plugin>
         </plugins>
     </build>

@@ -2,13 +2,12 @@ package org.example.common.security.jwt;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
-import java.security.Key;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
@@ -19,7 +18,7 @@ import java.util.stream.Collectors;
 
 public class JwtTokenUtil {
 
-    private static final int MIN_SECRET_BYTES = 32; // HS256 requires >= 256 bits
+    private static final int MIN_SECRET_BYTES = 32;
 
     private final String secret;
     private final long expiration;
@@ -27,8 +26,7 @@ public class JwtTokenUtil {
     public JwtTokenUtil(String secret, long expiration) {
         if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < MIN_SECRET_BYTES) {
             throw new IllegalStateException(
-                    "jwt.secret must be at least " + MIN_SECRET_BYTES + " bytes (256 bits) for HS256. " +
-                    "Current length: " + (secret == null ? 0 : secret.getBytes(StandardCharsets.UTF_8).length) + " bytes.");
+                    "jwt.secret must be at least " + MIN_SECRET_BYTES + " bytes (256 bits) for HS256.");
         }
         this.secret = secret;
         this.expiration = expiration;
@@ -53,15 +51,14 @@ public class JwtTokenUtil {
 
     private Claims extractAllClaims(String token) {
         return Jwts.parser()
-                .setSigningKey(getSigningKey())
+                .verifyWith(getSigningKey())
                 .build()
-                .parseClaimsJws(token)
-                .getBody();
+                .parseSignedClaims(token)
+                .getPayload();
     }
 
-    private Key getSigningKey() {
-        byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
-        return Keys.hmacShaKeyFor(keyBytes);
+    private SecretKey getSigningKey() {
+        return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
     private Boolean isTokenExpired(String token) {
@@ -81,16 +78,16 @@ public class JwtTokenUtil {
     }
 
     private String createToken(Map<String, Object> claims, String subject) {
-        long nowMillis = System.currentTimeMillis();
+        Date now = new Date();
         return Jwts.builder()
-                .setClaims(claims)
-                .setIssuer("online-ordering-system")
-                .setSubject(subject)
-                .setId(UUID.randomUUID().toString())          // jti — unique token ID
-                .setIssuedAt(new Date(nowMillis))
-                .setNotBefore(new Date(nowMillis))            // nbf — not valid before now
-                .setExpiration(new Date(nowMillis + expiration))
-                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
+                .claims(claims)
+                .issuer("online-ordering-system")
+                .subject(subject)
+                .id(UUID.randomUUID().toString())
+                .issuedAt(now)
+                .notBefore(now)
+                .expiration(new Date(now.getTime() + expiration))
+                .signWith(getSigningKey())
                 .compact();
     }
 

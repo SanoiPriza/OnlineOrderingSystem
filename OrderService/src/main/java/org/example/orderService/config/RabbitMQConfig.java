@@ -4,6 +4,8 @@ import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.TopicExchange;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
@@ -20,33 +22,82 @@ public class RabbitMQConfig {
     public static final String STOCK_RESERVED_QUEUE = "stock.reserved.queue";
     public static final String STOCK_RESERVATION_FAILED_QUEUE = "stock.reservation.failed.queue";
 
+    public static final String DLX_EXCHANGE_NAME = "ordering.dlx";
+    public static final String STOCK_RESERVED_DLQ = "stock.reserved.dlq";
+    public static final String STOCK_RESERVATION_FAILED_DLQ = "stock.reservation.failed.dlq";
+
     @Bean
     public TopicExchange exchange() {
         return new TopicExchange(EXCHANGE_NAME);
     }
 
     @Bean
+    public TopicExchange dlxExchange() {
+        return new TopicExchange(DLX_EXCHANGE_NAME);
+    }
+
+    @Bean
     public Queue stockReservedQueue() {
-        return new Queue(STOCK_RESERVED_QUEUE);
+        return org.springframework.amqp.core.QueueBuilder.durable(STOCK_RESERVED_QUEUE)
+                .withArgument("x-dead-letter-exchange", DLX_EXCHANGE_NAME)
+                .withArgument("x-dead-letter-routing-key", STOCK_RESERVED_QUEUE + ".dlq")
+                .build();
     }
 
     @Bean
     public Queue stockReservationFailedQueue() {
-        return new Queue(STOCK_RESERVATION_FAILED_QUEUE);
+        return org.springframework.amqp.core.QueueBuilder.durable(STOCK_RESERVATION_FAILED_QUEUE)
+                .withArgument("x-dead-letter-exchange", DLX_EXCHANGE_NAME)
+                .withArgument("x-dead-letter-routing-key", STOCK_RESERVATION_FAILED_QUEUE + ".dlq")
+                .build();
     }
 
     @Bean
-    public Binding bindingStockReserved(Queue stockReservedQueue, TopicExchange exchange) {
+    public Queue stockReservedDlq() {
+        return new Queue(STOCK_RESERVED_DLQ);
+    }
+
+    @Bean
+    public Queue stockReservationFailedDlq() {
+        return new Queue(STOCK_RESERVATION_FAILED_DLQ);
+    }
+
+    @Bean
+    public Binding bindingStockReserved(
+            @org.springframework.beans.factory.annotation.Qualifier("stockReservedQueue") Queue stockReservedQueue,
+            @org.springframework.beans.factory.annotation.Qualifier("exchange") TopicExchange exchange) {
         return BindingBuilder.bind(stockReservedQueue).to(exchange).with("stock.reserved");
     }
 
     @Bean
-    public Binding bindingStockReservationFailed(Queue stockReservationFailedQueue, TopicExchange exchange) {
+    public Binding bindingStockReservationFailed(
+            @org.springframework.beans.factory.annotation.Qualifier("stockReservationFailedQueue") Queue stockReservationFailedQueue,
+            @org.springframework.beans.factory.annotation.Qualifier("exchange") TopicExchange exchange) {
         return BindingBuilder.bind(stockReservationFailedQueue).to(exchange).with("stock.reservation.failed");
+    }
+
+    @Bean
+    public Binding bindingStockReservedDlq(
+            @org.springframework.beans.factory.annotation.Qualifier("stockReservedDlq") Queue stockReservedDlq,
+            @org.springframework.beans.factory.annotation.Qualifier("dlxExchange") TopicExchange dlxExchange) {
+        return BindingBuilder.bind(stockReservedDlq).to(dlxExchange).with(STOCK_RESERVED_QUEUE + ".dlq");
+    }
+
+    @Bean
+    public Binding bindingStockReservationFailedDlq(
+            @org.springframework.beans.factory.annotation.Qualifier("stockReservationFailedDlq") Queue stockReservationFailedDlq,
+            @org.springframework.beans.factory.annotation.Qualifier("dlxExchange") TopicExchange dlxExchange) {
+        return BindingBuilder.bind(stockReservationFailedDlq).to(dlxExchange)
+                .with(STOCK_RESERVATION_FAILED_QUEUE + ".dlq");
     }
 
     @Bean
     public MessageConverter jsonMessageConverter() {
         return new Jackson2JsonMessageConverter();
+    }
+
+    @Bean
+    public RabbitAdmin rabbitAdmin(ConnectionFactory connectionFactory) {
+        return new RabbitAdmin(connectionFactory);
     }
 }

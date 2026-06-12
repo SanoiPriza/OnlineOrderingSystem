@@ -1,6 +1,7 @@
 package org.example.common.event;
 
 public class OrderCreatedEvent {
+    private String eventId;
     private String orderId;
     private String productId;
     private int quantity;
@@ -8,10 +9,19 @@ public class OrderCreatedEvent {
     public OrderCreatedEvent() {
     }
 
-    public OrderCreatedEvent(String orderId, String productId, int quantity) {
+    public OrderCreatedEvent(String eventId, String orderId, String productId, int quantity) {
+        this.eventId = eventId;
         this.orderId = orderId;
         this.productId = productId;
         this.quantity = quantity;
+    }
+
+    public String getEventId() {
+        return eventId;
+    }
+
+    public void setEventId(String eventId) {
+        this.eventId = eventId;
     }
 
     public String getOrderId() {

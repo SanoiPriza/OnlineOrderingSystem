@@ -1,0 +1,108 @@
+.root {
+    -fx-background-color: #1a1a2e;
+    -fx-font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+
+.header {
+    -fx-background-color: #16213e;
+    -fx-border-color: #0f3460;
+    -fx-border-width: 0 0 2 0;
+}
+
+.header-title {
+    -fx-text-fill: #e0e0e0;
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+}
+
+.header-meta {
+    -fx-text-fill: #7f8c8d;
+    -fx-font-size: 12px;
+}
+
+.card {
+    -fx-background-color: #16213e;
+    -fx-background-radius: 8;
+    -fx-border-color: #0f3460;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-padding: 14;
+}
+
+.card-title {
+    -fx-text-fill: #e0e0e0;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+}
+
+.dlq-card {
+    -fx-background-color: #1f2d4a;
+    -fx-background-radius: 6;
+    -fx-border-color: #e67e22;
+    -fx-border-radius: 6;
+    -fx-border-width: 1;
+}
+
+.btn-primary {
+    -fx-background-color: #0f3460;
+    -fx-text-fill: #ecf0f1;
+    -fx-background-radius: 6;
+    -fx-padding: 7 16 7 16;
+    -fx-cursor: hand;
+    -fx-font-size: 13px;
+}
+
+.btn-primary:hover  { -fx-background-color: #1a5276; }
+.btn-primary:pressed { -fx-background-color: #0d2742; }
+
+.btn-warning {
+    -fx-background-color: #7d4e1b;
+    -fx-text-fill: #f0e6d3;
+    -fx-background-radius: 6;
+    -fx-padding: 6 14 6 14;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+}
+
+.btn-warning:hover  { -fx-background-color: #a0621f; }
+.btn-warning:pressed { -fx-background-color: #5c3a14; }
+.btn-warning:disabled { -fx-opacity: 0.5; }
+
+.table-view {
+    -fx-background-color: #1a1a2e;
+    -fx-border-color: #0f3460;
+    -fx-border-width: 1;
+    -fx-background-radius: 4;
+}
+
+.table-view .column-header-background {
+    -fx-background-color: #0f3460;
+}
+
+.table-view .column-header .label {
+    -fx-text-fill: #bdc3c7;
+    -fx-font-weight: bold;
+    -fx-font-size: 12px;
+}
+
+.table-row-cell {
+    -fx-background-color: #16213e;
+    -fx-text-fill: #e0e0e0;
+    -fx-border-color: transparent transparent #0f3460 transparent;
+    -fx-border-width: 1;
+}
+
+.table-row-cell:odd  { -fx-background-color: #1a2744; }
+.table-row-cell:selected { -fx-background-color: #1a5276 !important; }
+
+.table-cell {
+    -fx-text-fill: #e0e0e0;
+    -fx-font-size: 12px;
+    -fx-padding: 4 8 4 8;
+}
+
+.status-bar {
+    -fx-background-color: #0d1117;
+    -fx-border-color: #0f3460;
+    -fx-border-width: 1 0 0 0;
+}

@@ -11,7 +11,6 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -45,12 +44,10 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody AuthRequest authRequest) {
         try {
-            Authentication authentication = authenticationManager.authenticate(
+            authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
                             authRequest.getUsername(),
-                            authRequest.getPassword()
-                    )
-            );
+                            authRequest.getPassword()));
 
             UserDetails userDetails = userDetailsService.loadUserByUsername(authRequest.getUsername());
 
@@ -61,8 +58,7 @@ public class AuthController {
                     userDetails.getUsername(),
                     userDetails.getAuthorities().stream()
                             .map(GrantedAuthority::getAuthority)
-                            .collect(Collectors.toList())
-            );
+                            .collect(Collectors.toList()));
 
             return ResponseEntity.ok(response);
 
@@ -164,7 +160,8 @@ public class AuthController {
             if (jti != null) {
                 tokenBlacklist.add(jti, expiryEpoch);
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
         return ResponseEntity.ok(Map.of("message", "Logged out successfully"));
     }
 
@@ -187,8 +184,7 @@ public class AuthController {
                             userDetails.getUsername(),
                             userDetails.getAuthorities().stream()
                                     .map(GrantedAuthority::getAuthority)
-                                    .collect(Collectors.toList())
-                    );
+                                    .collect(Collectors.toList()));
 
                     return ResponseEntity.ok(response);
                 }

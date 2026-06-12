@@ -3,6 +3,7 @@ package org.example.orderService.repository;
 import org.example.common.model.OrderStatus;
 import org.example.orderService.model.OrderEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -16,4 +17,7 @@ public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
     List<OrderEntity> findByProductId(String productId);
 
     List<OrderEntity> findByUsername(String username);
+
+    @Query("SELECT o.status, COUNT(o) FROM OrderEntity o GROUP BY o.status")
+    List<Object[]> countGroupedByStatus();
 }

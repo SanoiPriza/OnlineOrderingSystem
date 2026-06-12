@@ -12,6 +12,9 @@ import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
 
+import org.example.productService.repository.ProcessedEventRepository;
+import org.example.productService.model.ProcessedEvent;
+
 @Component
 public class ProductEventListener {
 
@@ -19,24 +22,40 @@ public class ProductEventListener {
 
     private final ProductService productService;
     private final RabbitTemplate rabbitTemplate;
+    private final ProcessedEventRepository processedEventRepository;
 
-    public ProductEventListener(ProductService productService, RabbitTemplate rabbitTemplate) {
+    public ProductEventListener(ProductService productService, RabbitTemplate rabbitTemplate,
+            ProcessedEventRepository processedEventRepository) {
         this.productService = productService;
         this.rabbitTemplate = rabbitTemplate;
+        this.processedEventRepository = processedEventRepository;
     }
 
     @RabbitListener(queues = RabbitMQConfig.ORDER_CREATED_QUEUE)
     public void handleOrderCreatedEvent(OrderCreatedEvent event) {
-        log.info("Received OrderCreatedEvent for order ID: {}", event.getOrderId());
+        log.info("Received OrderCreatedEvent (eventId: {}) for order ID: {}", event.getEventId(), event.getOrderId());
+
+        if (event.getEventId() != null && processedEventRepository.existsById(event.getEventId())) {
+            log.info("Event {} already processed. Skipping.", event.getEventId());
+            return;
+        }
+
         try {
             productService.decrementStock(event.getProductId(), event.getQuantity());
-            StockReservedEvent reservedEvent = new StockReservedEvent(event.getOrderId());
+
+            if (event.getEventId() != null) {
+                processedEventRepository.save(new ProcessedEvent(event.getEventId()));
+            }
+
+            StockReservedEvent reservedEvent = new StockReservedEvent(java.util.UUID.randomUUID().toString(),
+                    event.getOrderId());
             rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, RabbitMQConfig.STOCK_RESERVED_ROUTING_KEY,
                     reservedEvent);
             log.info("Successfully reserved stock for order ID: {}", event.getOrderId());
         } catch (Exception e) {
             log.error("Failed to reserve stock for order ID: {}", event.getOrderId(), e);
-            StockReservationFailedEvent failedEvent = new StockReservationFailedEvent(event.getOrderId(),
+            StockReservationFailedEvent failedEvent = new StockReservationFailedEvent(
+                    java.util.UUID.randomUUID().toString(), event.getOrderId(),
                     e.getMessage());
             rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME,
                     RabbitMQConfig.STOCK_RESERVATION_FAILED_ROUTING_KEY, failedEvent);
@@ -45,9 +64,21 @@ public class ProductEventListener {
 
     @RabbitListener(queues = RabbitMQConfig.STOCK_COMPENSATION_QUEUE)
     public void handleStockCompensationEvent(StockCompensationEvent event) {
-        log.info("Received StockCompensationEvent for order ID: {}", event.getOrderId());
+        log.info("Received StockCompensationEvent (eventId: {}) for order ID: {}", event.getEventId(),
+                event.getOrderId());
+
+        if (event.getEventId() != null && processedEventRepository.existsById(event.getEventId())) {
+            log.info("Event {} already processed. Skipping.", event.getEventId());
+            return;
+        }
+
         try {
             productService.incrementStock(event.getProductId(), event.getQuantity());
+
+            if (event.getEventId() != null) {
+                processedEventRepository.save(new ProcessedEvent(event.getEventId()));
+            }
+
             log.info("Successfully compensated stock for order ID: {}", event.getOrderId());
         } catch (Exception e) {
             log.error("Failed to compensate stock for order ID: {}. MANUAL INTERVENTION REQUIRED.", event.getOrderId(),
