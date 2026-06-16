@@ -25,7 +25,8 @@ public class OutboxEvent {
     public enum EventType {
         STOCK_RESTORE,
         ORDER_CREATED,
-        STOCK_COMPENSATION
+        STOCK_COMPENSATION,
+        INITIATE_PAYMENT
     }
 
     @Id
@@ -99,6 +100,17 @@ public class OutboxEvent {
         event.setStatus(EventStatus.PENDING);
         event.setOrderId(orderId);
         event.setPayload(buildPayload(productId, quantity));
+        event.setRetryCount(0);
+        event.setCreatedAt(LocalDateTime.now());
+        return event;
+    }
+
+    public static OutboxEvent initiatePayment(Long orderId) {
+        OutboxEvent event = new OutboxEvent();
+        event.setEventType(EventType.INITIATE_PAYMENT);
+        event.setStatus(EventStatus.PENDING);
+        event.setOrderId(orderId);
+        event.setPayload("{}"); // Empty payload, just use orderId
         event.setRetryCount(0);
         event.setCreatedAt(LocalDateTime.now());
         return event;

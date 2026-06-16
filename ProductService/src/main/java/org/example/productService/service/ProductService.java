@@ -2,10 +2,17 @@ package org.example.productService.service;
 
 import org.example.common.exception.InvalidOperationException;
 import org.example.common.exception.ResourceNotFoundException;
+import org.example.common.event.OrderCreatedEvent;
+import org.example.common.event.StockCompensationEvent;
+import org.example.common.event.ProductUpdatedEvent;
+import org.example.productService.config.RabbitMQConfig;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.example.productService.dto.ProductRequest;
 import org.example.productService.dto.ProductResponse;
 import org.example.productService.mapper.ProductMapper;
+import org.example.productService.model.ProcessedEvent;
 import org.example.productService.model.Product;
+import org.example.productService.repository.ProcessedEventRepository;
 import org.example.productService.repository.ProductRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,10 +27,14 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final ProductMapper productMapper;
+    private final ProcessedEventRepository processedEventRepository;
+    private final RabbitTemplate rabbitTemplate;
 
-    public ProductService(ProductRepository productRepository, ProductMapper productMapper) {
+    public ProductService(ProductRepository productRepository, ProductMapper productMapper, ProcessedEventRepository processedEventRepository, RabbitTemplate rabbitTemplate) {
         this.productRepository = productRepository;
         this.productMapper = productMapper;
+        this.processedEventRepository = processedEventRepository;
+        this.rabbitTemplate = rabbitTemplate;
     }
 
     public List<ProductResponse> getAllProducts() {
@@ -41,6 +52,7 @@ public class ProductService {
     public ProductResponse createProduct(ProductRequest request) {
         Product product = productMapper.toEntity(request);
         Product savedProduct = productRepository.save(product);
+        publishProductUpdatedEvent(savedProduct);
         return productMapper.toResponse(savedProduct);
     }
 
@@ -50,6 +62,7 @@ public class ProductService {
                 .orElseThrow(() -> new ResourceNotFoundException("Product", "id", id));
         productMapper.updateEntityFromRequest(request, existingProduct);
         Product updatedProduct = productRepository.save(existingProduct);
+        publishProductUpdatedEvent(updatedProduct);
         return productMapper.toResponse(updatedProduct);
     }
 
@@ -114,5 +127,36 @@ public class ProductService {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", "id", id));
         return product.getStockQuantity() != null ? product.getStockQuantity() : 0;
+    }
+
+    @Transactional
+    public void processOrderCreated(OrderCreatedEvent event) {
+        if (event.getEventId() != null && processedEventRepository.existsById(event.getEventId())) {
+            return;
+        }
+        
+        decrementStock(event.getProductId(), event.getQuantity());
+        
+        if (event.getEventId() != null) {
+            processedEventRepository.save(new ProcessedEvent(event.getEventId()));
+        }
+    }
+
+    @Transactional
+    public void processStockCompensation(StockCompensationEvent event) {
+        if (event.getEventId() != null && processedEventRepository.existsById(event.getEventId())) {
+            return;
+        }
+        
+        incrementStock(event.getProductId(), event.getQuantity());
+        
+        if (event.getEventId() != null) {
+            processedEventRepository.save(new ProcessedEvent(event.getEventId()));
+        }
+    }
+
+    private void publishProductUpdatedEvent(Product product) {
+        ProductUpdatedEvent event = new ProductUpdatedEvent(product.getId(), product.getName(), product.getPrice());
+        rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, RabbitMQConfig.PRODUCT_UPDATED_ROUTING_KEY, event);
     }
 }

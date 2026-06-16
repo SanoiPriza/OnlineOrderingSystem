@@ -18,6 +18,7 @@ public class RabbitMQConfig {
 
     public static final String STOCK_RESERVED_ROUTING_KEY = "stock.reserved";
     public static final String STOCK_RESERVATION_FAILED_ROUTING_KEY = "stock.reservation.failed";
+    public static final String PRODUCT_UPDATED_ROUTING_KEY = "product.updated";
 
     public static final String ORDER_CREATED_QUEUE = "order.created.queue";
     public static final String STOCK_COMPENSATION_QUEUE = "stock.compensation.queue";

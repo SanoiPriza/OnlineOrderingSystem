@@ -17,6 +17,7 @@ public class OrderResponse {
     private BigDecimal amount;
     private String currency;
     private String paymentTransactionId;
+    private String username;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -25,7 +26,7 @@ public class OrderResponse {
 
     public OrderResponse(Long id, String customerName, String productId, Integer quantity, BigDecimal totalPrice,
             OrderStatus status, String statusMessage, String paymentMethod, BigDecimal amount,
-            String currency, String paymentTransactionId, LocalDateTime createdAt, LocalDateTime updatedAt) {
+            String currency, String paymentTransactionId, String username, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
         this.customerName = customerName;
         this.productId = productId;
@@ -37,6 +38,7 @@ public class OrderResponse {
         this.amount = amount;
         this.currency = currency;
         this.paymentTransactionId = paymentTransactionId;
+        this.username = username;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -129,6 +131,14 @@ public class OrderResponse {
         this.paymentTransactionId = paymentTransactionId;
     }
 
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
@@ -161,6 +171,7 @@ public class OrderResponse {
         private BigDecimal amount;
         private String currency;
         private String paymentTransactionId;
+        private String username;
         private LocalDateTime createdAt;
         private LocalDateTime updatedAt;
 
@@ -219,6 +230,11 @@ public class OrderResponse {
             return this;
         }
 
+        public OrderResponseBuilder username(String username) {
+            this.username = username;
+            return this;
+        }
+
         public OrderResponseBuilder createdAt(LocalDateTime createdAt) {
             this.createdAt = createdAt;
             return this;
@@ -231,7 +247,7 @@ public class OrderResponse {
 
         public OrderResponse build() {
             return new OrderResponse(id, customerName, productId, quantity, totalPrice, status, statusMessage,
-                    paymentMethod, amount, currency, paymentTransactionId, createdAt, updatedAt);
+                    paymentMethod, amount, currency, paymentTransactionId, username, createdAt, updatedAt);
         }
     }
 }

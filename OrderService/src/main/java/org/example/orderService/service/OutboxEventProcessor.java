@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.example.common.event.OrderCreatedEvent;
 import org.example.common.event.StockCompensationEvent;
+import org.example.common.event.PaymentRequestEvent;
 import org.example.orderService.config.RabbitMQConfig;
 import org.example.orderService.model.OutboxEvent;
 import org.example.orderService.repository.OutboxEventRepository;
@@ -14,6 +15,10 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.event.TransactionalEventListener;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.scheduling.annotation.Async;
+import org.example.orderService.event.OutboxSavedEvent;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -32,14 +37,21 @@ public class OutboxEventProcessor {
 
     private final OutboxEventRepository outboxEventRepository;
     private final RabbitTemplate rabbitTemplate;
+    private final OrderPaymentProcessor orderPaymentProcessor;
 
     public OutboxEventProcessor(OutboxEventRepository outboxEventRepository,
-            RabbitTemplate rabbitTemplate) {
+            RabbitTemplate rabbitTemplate,
+            OrderPaymentProcessor orderPaymentProcessor) {
         this.outboxEventRepository = outboxEventRepository;
         this.rabbitTemplate = rabbitTemplate;
+        this.orderPaymentProcessor = orderPaymentProcessor;
     }
 
-    @Scheduled(fixedDelay = 5000)
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.context.annotation.Lazy
+    private OutboxEventProcessor self;
+
+    @Scheduled(fixedDelay = 60000)
     @SchedulerLock(name = "OutboxEventProcessor_processOutboxEvents", lockAtLeastFor = "4s", lockAtMostFor = "10s")
     @Transactional
     public void processOutboxEvents() {
@@ -82,6 +94,13 @@ public class OutboxEventProcessor {
         }
     }
 
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onOutboxSaved(OutboxSavedEvent event) {
+        log.info("OutboxSavedEvent received, triggering outbox processing");
+        self.processOutboxEvents();
+    }
+
     @Scheduled(cron = "0 0 3 * * SUN")
     @SchedulerLock(name = "OutboxEventProcessor_weeklyCleanup", lockAtLeastFor = "1m", lockAtMostFor = "10m")
     @Transactional
@@ -110,9 +129,13 @@ public class OutboxEventProcessor {
     }
 
     private void publishEvent(OutboxEvent event) throws Exception {
+        if (event.getEventType() == OutboxEvent.EventType.INITIATE_PAYMENT) {
+            orderPaymentProcessor.publishPaymentRequestEvent(event.getOrderId());
+            return;
+        }
         JsonNode payload = objectMapper.readTree(event.getPayload());
-        String productId = payload.get("productId").asText();
-        int quantity = payload.get("quantity").asInt();
+        String productId = payload.has("productId") ? payload.get("productId").asText() : null;
+        int quantity = payload.has("quantity") ? payload.get("quantity").asInt() : 0;
 
         if (event.getEventType() == OutboxEvent.EventType.ORDER_CREATED) {
             OrderCreatedEvent orderCreatedEvent = new OrderCreatedEvent(

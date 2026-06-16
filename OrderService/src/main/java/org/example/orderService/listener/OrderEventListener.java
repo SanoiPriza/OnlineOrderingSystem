@@ -29,21 +29,9 @@ public class OrderEventListener {
     public void handleStockReservedEvent(StockReservedEvent event) {
         log.info("Received StockReservedEvent (eventId: {}) for order ID: {}", event.getEventId(), event.getOrderId());
 
-        if (event.getEventId() != null && processedEventRepository.existsById(event.getEventId())) {
-            log.info("Event {} already processed. Skipping.", event.getEventId());
-            return;
-        }
-
         try {
-            Long orderId = Long.parseLong(event.getOrderId());
-            orderService.updateOrderStatus(orderId, OrderStatus.STOCK_RESERVED);
-
-            if (event.getEventId() != null) {
-                processedEventRepository.save(new ProcessedEvent(event.getEventId()));
-            }
-
-            log.info("Order {} status updated to STOCK_RESERVED. Triggering async payment...", orderId);
-            orderService.processOrderPaymentAsync(orderId);
+            orderService.processStockReserved(event);
+            log.info("Order {} status updated to STOCK_RESERVED and INITIATE_PAYMENT outbox event created.", event.getOrderId());
         } catch (Exception e) {
             log.error("Failed to process StockReservedEvent for order ID: {}", event.getOrderId(), e);
         }

@@ -30,7 +30,7 @@ public class OrderController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public List<OrderResponse> getAllOrders() {
         return orderService.getAllOrders();
     }
@@ -42,9 +42,17 @@ public class OrderController {
 
     @GetMapping("/{id}")
     public ResponseEntity<OrderResponse> getOrderById(@PathVariable Long id) {
-        Optional<OrderResponse> order = orderService.getOrderById(id);
-        return order.map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+        Optional<OrderResponse> orderOpt = orderService.getOrderById(id);
+        if (orderOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        OrderResponse order = orderOpt.get();
+        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        boolean isAdmin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        if (!isAdmin && !order.getUsername().equals(auth.getName())) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
+        }
+        return ResponseEntity.ok(order);
     }
 
     @PostMapping
@@ -53,6 +61,7 @@ public class OrderController {
     }
 
     @PutMapping("/{id}/status")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<OrderResponse> updateOrderStatus(
             @PathVariable Long id,
             @RequestParam OrderStatus status) {
@@ -61,26 +70,21 @@ public class OrderController {
     }
 
     @PostMapping("/{id}/payment")
-    public DeferredResult<ResponseEntity<OrderResponse>> processOrderPayment(@PathVariable Long id) {
-        DeferredResult<ResponseEntity<OrderResponse>> deferredResult = new DeferredResult<>(ASYNC_TIMEOUT);
+    public ResponseEntity<Void> processOrderPayment(@PathVariable Long id) {
+        Optional<OrderResponse> orderOpt = orderService.getOrderById(id);
+        if (orderOpt.isPresent()) {
+            OrderResponse order = orderOpt.get();
+            org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            boolean isAdmin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+            if (!isAdmin && !order.getUsername().equals(auth.getName())) {
+                return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
+            }
 
-        if (orderService.getOrderById(id).isPresent()) {
-            CompletableFuture<OrderEntity> future = orderService.processOrderPaymentAsync(id);
-            future.thenAccept(processedOrder -> {
-                if (processedOrder != null) {
-                    deferredResult.setResult(ResponseEntity.ok(orderMapper.toResponse(processedOrder)));
-                } else {
-                    deferredResult.setResult(ResponseEntity.notFound().build());
-                }
-            }).exceptionally(ex -> {
-                deferredResult.setErrorResult(ResponseEntity.badRequest().build());
-                return null;
-            });
+            orderService.initiateOrderPayment(id);
+            return ResponseEntity.accepted().build();
         } else {
-            deferredResult.setResult(ResponseEntity.notFound().build());
+            return ResponseEntity.notFound().build();
         }
-
-        return deferredResult;
     }
 
     @GetMapping("/{id}/payment")
@@ -99,6 +103,7 @@ public class OrderController {
     }
 
     @PostMapping("/{id}/refund")
+    @PreAuthorize("hasRole('ADMIN')")
     public DeferredResult<ResponseEntity<OrderResponse>> refundOrderPayment(@PathVariable Long id) {
         DeferredResult<ResponseEntity<OrderResponse>> deferredResult = new DeferredResult<>(ASYNC_TIMEOUT);
 
@@ -119,18 +124,20 @@ public class OrderController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteOrder(@PathVariable Long id) {
         orderService.deleteOrder(id);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/customer/{customerName}")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public List<OrderResponse> getOrdersByCustomerName(@PathVariable String customerName) {
         return orderService.getOrdersByCustomerName(customerName);
     }
 
     @GetMapping("/status/{status}")
+    @PreAuthorize("hasRole('ADMIN')")
     public List<OrderResponse> getOrdersByStatus(@PathVariable OrderStatus status) {
         return orderService.getOrdersByStatus(status);
     }

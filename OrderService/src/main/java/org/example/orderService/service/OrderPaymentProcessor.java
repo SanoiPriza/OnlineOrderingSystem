@@ -4,6 +4,7 @@ import org.example.common.exception.ResourceNotFoundException;
 import org.example.common.model.OrderStatus;
 import org.example.orderService.client.PaymentServiceClient;
 
+import org.example.common.event.PaymentResultEvent;
 import org.example.orderService.dto.PaymentRequest;
 import org.example.orderService.dto.PaymentResponse;
 import org.example.orderService.model.OrderEntity;
@@ -16,8 +17,13 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.example.common.event.PaymentRequestEvent;
+import org.example.orderService.config.RabbitMQConfig;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import java.time.LocalDateTime;
 import java.util.concurrent.CompletableFuture;
+import org.springframework.context.ApplicationEventPublisher;
+import org.example.orderService.event.OutboxSavedEvent;
 
 @Component
 public class OrderPaymentProcessor {
@@ -27,37 +33,43 @@ public class OrderPaymentProcessor {
     private final OrderRepository orderRepository;
     private final OutboxEventRepository outboxEventRepository;
     private final PaymentServiceClient paymentServiceClient;
+    private final ApplicationEventPublisher applicationEventPublisher;
+    private final RabbitTemplate rabbitTemplate;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.context.annotation.Lazy
+    private OrderPaymentProcessor self;
 
     public OrderPaymentProcessor(OrderRepository orderRepository,
             OutboxEventRepository outboxEventRepository,
-            PaymentServiceClient paymentServiceClient) {
+            PaymentServiceClient paymentServiceClient,
+            ApplicationEventPublisher applicationEventPublisher,
+            RabbitTemplate rabbitTemplate) {
         this.orderRepository = orderRepository;
         this.outboxEventRepository = outboxEventRepository;
         this.paymentServiceClient = paymentServiceClient;
+        this.applicationEventPublisher = applicationEventPublisher;
+        this.rabbitTemplate = rabbitTemplate;
     }
 
-    @Async
-    public CompletableFuture<OrderEntity> processPaymentAsync(Long orderId) {
+    public void publishPaymentRequestEvent(Long orderId) {
         OrderEntity order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
-        try {
-            PaymentRequest paymentRequest = PaymentRequest.builder()
-                    .orderId(order.getId().toString())
-                    .amount(order.getAmount())
-                    .currency(order.getCurrency())
-                    .paymentMethod(order.getPaymentMethod())
-                    .build();
 
-            return paymentServiceClient.processPaymentCompletable(paymentRequest)
-                    .thenApply(paymentResponse -> handlePaymentResult(orderId, paymentResponse))
-                    .exceptionally(ex -> handlePaymentError(orderId, ex));
-        } catch (Exception e) {
-            return CompletableFuture.completedFuture(handlePaymentError(orderId, e));
-        }
+        PaymentRequestEvent event = new PaymentRequestEvent(
+                order.getId().toString(),
+                order.getAmount(),
+                order.getCurrency(),
+                order.getPaymentMethod()
+        );
+
+        rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME,
+                RabbitMQConfig.PAYMENT_REQUEST_ROUTING_KEY, event);
     }
 
     @Transactional
-    protected OrderEntity handlePaymentResult(Long orderId, PaymentResponse paymentResponse) {
+    public OrderEntity handlePaymentResult(PaymentResultEvent paymentResponse) {
+        Long orderId = Long.parseLong(paymentResponse.getOrderId());
         OrderEntity fresh = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
 
@@ -75,18 +87,9 @@ public class OrderPaymentProcessor {
         return orderRepository.save(fresh);
     }
 
-    @Transactional
-    protected OrderEntity handlePaymentError(Long orderId, Throwable ex) {
-        OrderEntity fresh = orderRepository.findById(orderId).orElse(null);
-        if (fresh != null) {
-            fresh.setStatus(OrderStatus.PAYMENT_ERROR);
-            fresh.setStatusMessage("Error processing payment: " + ex.getMessage());
-            fresh.setUpdatedAt(LocalDateTime.now());
-            orderRepository.save(fresh);
-            enqueueStockRestore(fresh);
-            return fresh;
-        }
-        return null;
+    public OrderEntity handlePaymentError(Long orderId, Throwable ex) {
+        log.error("Network or technical error during payment for order ID: {}. Propagating for retry.", orderId, ex);
+        throw new RuntimeException("Payment processing failed due to technical error", ex);
     }
 
     @Async
@@ -147,6 +150,7 @@ public class OrderPaymentProcessor {
         }
         OutboxEvent event = OutboxEvent.stockCompensation(order.getId(), order.getProductId(), order.getQuantity());
         outboxEventRepository.save(event);
+        applicationEventPublisher.publishEvent(new OutboxSavedEvent(this));
         log.info("Enqueued STOCK_COMPENSATION outbox event for order {} (product={}, qty={})",
                 order.getId(), order.getProductId(), order.getQuantity());
     }

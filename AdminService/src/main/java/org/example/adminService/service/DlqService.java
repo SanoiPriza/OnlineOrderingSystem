@@ -10,7 +10,7 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.client.RestClient;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -31,11 +31,10 @@ public class DlqService {
     );
 
     private final RabbitTemplate rabbitTemplate;
-    private final WebClient      mgmtClient;
+    private final RestClient      mgmtClient;
 
     public DlqService(
             RabbitTemplate rabbitTemplate,
-            WebClient.Builder webClientBuilder,
             @Value("${rabbitmq.management.url}") String mgmtUrl,
             @Value("${rabbitmq.management.username}") String mgmtUser,
             @Value("${rabbitmq.management.password}") String mgmtPass) {
@@ -43,7 +42,7 @@ public class DlqService {
         this.rabbitTemplate = rabbitTemplate;
         String credentials = Base64.getEncoder()
                 .encodeToString((mgmtUser + ":" + mgmtPass).getBytes(StandardCharsets.UTF_8));
-        this.mgmtClient = webClientBuilder
+        this.mgmtClient = RestClient.builder()
                 .baseUrl(mgmtUrl)
                 .defaultHeader("Authorization", "Basic " + credentials)
                 .build();
@@ -52,10 +51,9 @@ public class DlqService {
     public List<QueueStats> getAllQueueStats() {
         try {
             List<Map<String, Object>> apiQueues = mgmtClient.get()
-                    .uri("/api/queues/%2F")
+                    .uri("/api/queues/{vhost}", "/")
                     .retrieve()
-                    .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {})
-                    .block();
+                    .body(new ParameterizedTypeReference<List<Map<String, Object>>>() {});
 
             if (apiQueues == null) return List.of();
 

@@ -31,6 +31,7 @@ public class SecurityConfig {
                 .authorizeExchange(ex -> ex
                         .pathMatchers("/actuator/**").permitAll()
                         .pathMatchers("/api/auth/**").permitAll()
+                        .pathMatchers("/admin/**").hasAuthority("ROLE_ADMIN")
                         .anyExchange().authenticated()
                 )
                 .addFilterAt(authWebFilter, SecurityWebFiltersOrder.AUTHENTICATION);

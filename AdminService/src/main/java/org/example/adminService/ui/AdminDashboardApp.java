@@ -9,7 +9,8 @@ public class AdminDashboardApp extends Application {
     @Override
     public void start(Stage primaryStage) {
         String adminUrl = System.getProperty("adminServiceUrl", "http://localhost:8090");
-        AdminApiClient client = new AdminApiClient(adminUrl);
+        String internalToken = System.getProperty("internal.service.token", "internal-service-shared-secret-change-me");
+        AdminApiClient client = new AdminApiClient(adminUrl, internalToken);
 
         DashboardView view = new DashboardView(client, primaryStage);
 
@@ -21,9 +22,5 @@ public class AdminDashboardApp extends Application {
         primaryStage.show();
 
         view.startAutoRefresh();
-    }
-
-    public static void main(String[] args) {
-        launch(args);
     }
 }

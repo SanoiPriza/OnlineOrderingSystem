@@ -18,9 +18,13 @@ public class RabbitMQConfig {
 
     public static final String ORDER_CREATED_ROUTING_KEY = "order.created";
     public static final String STOCK_COMPENSATION_ROUTING_KEY = "stock.compensation";
+    public static final String PAYMENT_REQUEST_ROUTING_KEY = "payment.request";
+    public static final String PRODUCT_UPDATED_ROUTING_KEY = "product.updated";
 
     public static final String STOCK_RESERVED_QUEUE = "stock.reserved.queue";
     public static final String STOCK_RESERVATION_FAILED_QUEUE = "stock.reservation.failed.queue";
+    public static final String PAYMENT_RESULT_QUEUE = "payment.result.queue";
+    public static final String PRODUCT_UPDATED_QUEUE = "product.updated.queue";
 
     public static final String DLX_EXCHANGE_NAME = "ordering.dlx";
     public static final String STOCK_RESERVED_DLQ = "stock.reserved.dlq";
@@ -53,6 +57,18 @@ public class RabbitMQConfig {
     }
 
     @Bean
+    public Queue paymentResultQueue() {
+        return org.springframework.amqp.core.QueueBuilder.durable(PAYMENT_RESULT_QUEUE)
+                .build();
+    }
+
+    @Bean
+    public Queue productUpdatedQueue() {
+        return org.springframework.amqp.core.QueueBuilder.durable(PRODUCT_UPDATED_QUEUE)
+                .build();
+    }
+
+    @Bean
     public Queue stockReservedDlq() {
         return new Queue(STOCK_RESERVED_DLQ);
     }
@@ -74,6 +90,20 @@ public class RabbitMQConfig {
             @org.springframework.beans.factory.annotation.Qualifier("stockReservationFailedQueue") Queue stockReservationFailedQueue,
             @org.springframework.beans.factory.annotation.Qualifier("exchange") TopicExchange exchange) {
         return BindingBuilder.bind(stockReservationFailedQueue).to(exchange).with("stock.reservation.failed");
+    }
+
+    @Bean
+    public Binding bindingPaymentResult(
+            @org.springframework.beans.factory.annotation.Qualifier("paymentResultQueue") Queue paymentResultQueue,
+            @org.springframework.beans.factory.annotation.Qualifier("exchange") TopicExchange exchange) {
+        return BindingBuilder.bind(paymentResultQueue).to(exchange).with("payment.result");
+    }
+
+    @Bean
+    public Binding bindingProductUpdated(
+            @org.springframework.beans.factory.annotation.Qualifier("productUpdatedQueue") Queue productUpdatedQueue,
+            @org.springframework.beans.factory.annotation.Qualifier("exchange") TopicExchange exchange) {
+        return BindingBuilder.bind(productUpdatedQueue).to(exchange).with("product.updated");
     }
 
     @Bean

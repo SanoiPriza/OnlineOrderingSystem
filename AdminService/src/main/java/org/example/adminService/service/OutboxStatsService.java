@@ -5,9 +5,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.client.RestClient;
 
 import java.time.Duration;
+import org.example.common.security.jwt.JwtTokenUtil;
+import org.springframework.security.core.userdetails.User;
 
 @Service
 public class OutboxStatsService {
@@ -15,27 +17,33 @@ public class OutboxStatsService {
     private static final Logger   log     = LoggerFactory.getLogger(OutboxStatsService.class);
     private static final Duration TIMEOUT = Duration.ofSeconds(5);
 
-    private final WebClient webClient;
+    private final RestClient restClient;
 
     public OutboxStatsService(
-            WebClient.Builder builder,
             @Value("${order-service.url}") String orderServiceUrl,
-            @Value("${internal.service.token}") String internalToken) {
+            @Value("${internal.service.token}") String internalToken,
+            JwtTokenUtil jwtTokenUtil) {
 
-        this.webClient = builder
+        String adminToken = jwtTokenUtil.generateToken(
+                User.withUsername("admin")
+                        .password("")
+                        .authorities("ROLE_ADMIN")
+                        .build()
+        );
+
+        this.restClient = RestClient.builder()
                 .baseUrl(orderServiceUrl)
                 .defaultHeader("X-Internal-Service-Token", internalToken)
+                .defaultHeader("Authorization", "Bearer " + adminToken)
                 .build();
     }
 
     public OutboxStats fetch() {
         try {
-            OutboxStats stats = webClient.get()
+            OutboxStats stats = restClient.get()
                     .uri("/api/admin/outbox/stats")
                     .retrieve()
-                    .bodyToMono(OutboxStats.class)
-                    .timeout(TIMEOUT)
-                    .block();
+                    .body(OutboxStats.class);
             return stats != null ? stats : emptyStats();
         } catch (Exception e) {
             log.warn("Could not fetch outbox stats from OrderService: {}", e.getMessage());

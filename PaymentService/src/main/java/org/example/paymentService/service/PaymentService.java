@@ -25,7 +25,6 @@ public class PaymentService {
         this.paymentGatewayClient = paymentGatewayClient;
     }
 
-    @Transactional
     public PaymentResponse processPayment(PaymentRequest paymentRequest) {
         Optional<Payment> existing = paymentRepository.findByOrderId(paymentRequest.getOrderId());
         if (existing.isPresent()) {
@@ -97,7 +96,6 @@ public class PaymentService {
         return response;
     }
 
-    @Transactional
     public PaymentResponse refundPayment(String transactionId) {
         Payment payment = paymentRepository.findByTransactionId(transactionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Payment", "transactionId", transactionId));

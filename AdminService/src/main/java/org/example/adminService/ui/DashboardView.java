@@ -39,6 +39,7 @@ public class DashboardView {
     private Label outboxFailed;
 
     private final java.util.Map<String, Label> dlqStatusLabels = new java.util.LinkedHashMap<>();
+    private FlowPane dlqButtonsPane;
 
     private ScheduledExecutorService scheduler;
 
@@ -94,6 +95,7 @@ public class DashboardView {
         return row;
     }
 
+    @SuppressWarnings("unchecked")
     private VBox buildServicePanel() {
         VBox panel = new VBox(8);
         panel.getStyleClass().add("card");
@@ -103,8 +105,8 @@ public class DashboardView {
         heading.getStyleClass().add("card-title");
 
         TableView<ServiceStatus> table = new TableView<>(serviceList);
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        table.setPrefHeight(160);
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        VBox.setVgrow(table, Priority.ALWAYS);
         table.getStyleClass().add("health-table");
 
         TableColumn<ServiceStatus, String> nameCol = new TableColumn<>("Service");
@@ -114,7 +116,7 @@ public class DashboardView {
         TableColumn<ServiceStatus, String> statusCol = new TableColumn<>("Status");
         statusCol.setCellValueFactory(c -> new SimpleStringProperty(c.getValue().getStatus()));
         statusCol.setPrefWidth(80);
-        statusCol.setCellFactory(col -> new TableCell<>() {
+        statusCol.setCellFactory(col -> new TableCell<ServiceStatus, String>() {
             @Override
             protected void updateItem(String item, boolean empty) {
                 super.updateItem(item, empty);
@@ -181,6 +183,7 @@ public class DashboardView {
         return l;
     }
 
+    @SuppressWarnings("unchecked")
     private VBox buildQueueSection() {
         VBox section = new VBox(8);
         section.getStyleClass().add("card");
@@ -192,13 +195,13 @@ public class DashboardView {
         heading.getStyleClass().add("card-title");
 
         TableView<QueueStats> table = new TableView<>(queueList);
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
         VBox.setVgrow(table, Priority.ALWAYS);
 
         TableColumn<QueueStats, String> nameCol = new TableColumn<>("Queue");
         nameCol.setCellValueFactory(c -> new SimpleStringProperty(c.getValue().getName()));
         nameCol.setPrefWidth(300);
-        nameCol.setCellFactory(col -> new TableCell<>() {
+        nameCol.setCellFactory(col -> new TableCell<QueueStats, String>() {
             @Override
             protected void updateItem(String item, boolean empty) {
                 super.updateItem(item, empty);
@@ -214,7 +217,7 @@ public class DashboardView {
         });
 
         TableColumn<QueueStats, String> totalCol = numericCol("Total", q -> String.valueOf(q.getMessages()));
-        totalCol.setCellFactory(col -> new TableCell<>() {
+        totalCol.setCellFactory(col -> new TableCell<QueueStats, String>() {
             @Override
             protected void updateItem(String item, boolean empty) {
                 super.updateItem(item, empty);
@@ -225,8 +228,8 @@ public class DashboardView {
                 }
                 setText(item);
                 long val = Long.parseLong(item);
-                TableRow<?> row = getTableRow();
-                if (row != null && row.getItem() instanceof QueueStats qs && qs.isDlq() && val > 0) {
+                TableRow<QueueStats> row = getTableRow();
+                if (row != null && row.getItem() != null && row.getItem().isDlq() && val > 0) {
                     setStyle("-fx-text-fill: #e74c3c; -fx-font-weight: bold;");
                 } else {
                     setStyle("");
@@ -268,42 +271,11 @@ public class DashboardView {
         sub.setStyle("-fx-text-fill: #95a5a6; -fx-font-size: 12px;");
         sub.setWrapText(true);
 
-        FlowPane buttons = new FlowPane();
-        buttons.setHgap(14);
-        buttons.setVgap(10);
+        dlqButtonsPane = new FlowPane();
+        dlqButtonsPane.setHgap(14);
+        dlqButtonsPane.setVgap(10);
 
-        String[] dlqs = {
-                "order.created.dlq",
-                "stock.compensation.dlq",
-                "stock.reserved.dlq",
-                "stock.reservation.failed.dlq"
-        };
-
-        for (String dlqName : dlqs) {
-            VBox card = new VBox(6);
-            card.getStyleClass().add("dlq-card");
-            card.setPadding(new Insets(10, 14, 10, 14));
-            card.setMinWidth(230);
-
-            Label nameLabel = new Label(dlqName);
-            nameLabel.setStyle("-fx-text-fill: #e67e22; -fx-font-weight: bold; -fx-font-size: 12px;");
-            nameLabel.setWrapText(true);
-
-            Label statusLabel = new Label("—");
-            statusLabel.setStyle("-fx-text-fill: #95a5a6; -fx-font-size: 11px;");
-            statusLabel.setWrapText(true);
-            dlqStatusLabels.put(dlqName, statusLabel);
-
-            Button retryBtn = new Button("⟳  Retry All");
-            retryBtn.getStyleClass().add("btn-warning");
-            retryBtn.setMaxWidth(Double.MAX_VALUE);
-            retryBtn.setOnAction(e -> retryDlqAsync(dlqName, statusLabel, retryBtn));
-
-            card.getChildren().addAll(nameLabel, retryBtn, statusLabel);
-            buttons.getChildren().add(card);
-        }
-
-        panel.getChildren().addAll(heading, sub, buttons);
+        panel.getChildren().addAll(heading, sub, dlqButtonsPane);
         return panel;
     }
 
@@ -345,6 +317,34 @@ public class DashboardView {
     private void applySnapshot(DashboardSnapshot snap) {
         if (snap.getServices() != null) {
             serviceList.setAll(snap.getServices());
+        }
+
+        if (snap.getKnownDlqNames() != null && dlqButtonsPane.getChildren().size() != snap.getKnownDlqNames().size()) {
+            dlqButtonsPane.getChildren().clear();
+            dlqStatusLabels.clear();
+            for (String dlqName : snap.getKnownDlqNames()) {
+                VBox card = new VBox(6);
+                card.getStyleClass().add("dlq-card");
+                card.setPadding(new Insets(10, 14, 10, 14));
+                card.setMinWidth(230);
+
+                Label nameLabel = new Label(dlqName);
+                nameLabel.setStyle("-fx-text-fill: #e67e22; -fx-font-weight: bold; -fx-font-size: 12px;");
+                nameLabel.setWrapText(true);
+
+                Label statusLabel = new Label("—");
+                statusLabel.setStyle("-fx-text-fill: #95a5a6; -fx-font-size: 11px;");
+                statusLabel.setWrapText(true);
+                dlqStatusLabels.put(dlqName, statusLabel);
+
+                Button retryBtn = new Button("⟳  Retry All");
+                retryBtn.getStyleClass().add("btn-warning");
+                retryBtn.setMaxWidth(Double.MAX_VALUE);
+                retryBtn.setOnAction(e -> retryDlqAsync(dlqName, statusLabel, retryBtn));
+
+                card.getChildren().addAll(nameLabel, retryBtn, statusLabel);
+                dlqButtonsPane.getChildren().add(card);
+            }
         }
 
         if (snap.getQueues() != null) {

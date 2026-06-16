@@ -35,23 +35,14 @@ public class ProductEventListener {
     public void handleOrderCreatedEvent(OrderCreatedEvent event) {
         log.info("Received OrderCreatedEvent (eventId: {}) for order ID: {}", event.getEventId(), event.getOrderId());
 
-        if (event.getEventId() != null && processedEventRepository.existsById(event.getEventId())) {
-            log.info("Event {} already processed. Skipping.", event.getEventId());
-            return;
-        }
-
         try {
-            productService.decrementStock(event.getProductId(), event.getQuantity());
-
-            if (event.getEventId() != null) {
-                processedEventRepository.save(new ProcessedEvent(event.getEventId()));
-            }
+            productService.processOrderCreated(event);
 
             StockReservedEvent reservedEvent = new StockReservedEvent(java.util.UUID.randomUUID().toString(),
                     event.getOrderId());
             rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, RabbitMQConfig.STOCK_RESERVED_ROUTING_KEY,
                     reservedEvent);
-            log.info("Successfully reserved stock for order ID: {}", event.getOrderId());
+            log.info("Successfully processed OrderCreatedEvent and sent StockReservedEvent for order ID: {}", event.getOrderId());
         } catch (Exception e) {
             log.error("Failed to reserve stock for order ID: {}", event.getOrderId(), e);
             StockReservationFailedEvent failedEvent = new StockReservationFailedEvent(
@@ -67,17 +58,10 @@ public class ProductEventListener {
         log.info("Received StockCompensationEvent (eventId: {}) for order ID: {}", event.getEventId(),
                 event.getOrderId());
 
-        if (event.getEventId() != null && processedEventRepository.existsById(event.getEventId())) {
-            log.info("Event {} already processed. Skipping.", event.getEventId());
-            return;
-        }
-
         try {
-            productService.incrementStock(event.getProductId(), event.getQuantity());
+            productService.processStockCompensation(event);
 
-            if (event.getEventId() != null) {
-                processedEventRepository.save(new ProcessedEvent(event.getEventId()));
-            }
+            log.info("Successfully processed StockCompensationEvent for order ID: {}", event.getOrderId());
 
             log.info("Successfully compensated stock for order ID: {}", event.getOrderId());
         } catch (Exception e) {

@@ -6,6 +6,7 @@ import org.example.adminService.service.DlqService;
 import org.example.adminService.service.HealthCheckService;
 import org.example.adminService.service.OutboxStatsService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -13,6 +14,7 @@ import java.time.format.DateTimeFormatter;
 
 @RestController
 @RequestMapping("/admin")
+@PreAuthorize("hasAuthority('ROLE_ADMIN')")
 public class AdminController {
 
     private final HealthCheckService healthCheckService;
@@ -32,6 +34,7 @@ public class AdminController {
         DashboardSnapshot snap = new DashboardSnapshot();
         snap.setServices(healthCheckService.checkAll());
         snap.setQueues(dlqService.getAllQueueStats());
+        snap.setKnownDlqNames(dlqService.knownDlqNames());
         snap.setOutbox(outboxStatsService.fetch());
         snap.setSnapshotTime(LocalDateTime.now()
                 .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
@@ -39,7 +42,7 @@ public class AdminController {
     }
 
     @PostMapping("/dlq/{queue}/retry")
-    public ResponseEntity<RetryResult> retryDlq(@PathVariable String queue) {
+    public ResponseEntity<RetryResult> retryDlq(@PathVariable("queue") String queue) {
         return ResponseEntity.ok(dlqService.retryAllFromDlq(queue));
     }
 }

@@ -10,20 +10,22 @@
     <packaging>pom</packaging>
     
     <modules>
+        <module>ConfigServer</module>
         <module>OrderService</module>
         <module>ProductService</module>
         <module>PaymentService</module>
         <module>DiscoveryService</module>
         <module>ApiGateway</module>
         <module>UserService</module>
+        <module>DomainCommon</module>
         <module>SecurityCommon</module>
         <module>AdminService</module>
     </modules>
 
     <properties>
-        <java.version>21</java.version>
-        <spring-boot.version>3.5.6</spring-boot.version>
-        <spring-cloud.version>2025.0.1</spring-cloud.version>
+        <java.version>25</java.version>
+        <spring-boot.version>4.1.0</spring-boot.version>
+        <spring-cloud.version>2025.1.2</spring-cloud.version>
         <jjwt.version>0.13.0</jjwt.version>
         <resilience4j.version>2.3.0</resilience4j.version>
         <mapstruct.version>1.5.5.Final</mapstruct.version>
@@ -31,33 +33,8 @@
 
     <dependencyManagement>
         <dependencies>
-            <dependency>
-                <groupId>io.netty</groupId>
-                <artifactId>netty-bom</artifactId>
-                <version>4.1.131.Final</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-            <dependency>
-                <groupId>commons-fileupload</groupId>
-                <artifactId>commons-fileupload</artifactId>
-                <version>1.6.0</version>
-            </dependency>
-            <dependency>
-                <groupId>com.google.guava</groupId>
-                <artifactId>guava</artifactId>
-                <version>33.4.0-jre</version>
-            </dependency>
-            <dependency>
-                <groupId>com.thoughtworks.xstream</groupId>
-                <artifactId>xstream</artifactId>
-                <version>1.4.21</version>
-            </dependency>
-            <dependency>
-                <groupId>org.apache.httpcomponents</groupId>
-                <artifactId>httpclient</artifactId>
-                <version>4.5.14</version>
-            </dependency>
+
+
             <dependency>
                 <groupId>ch.qos.logback</groupId>
                 <artifactId>logback-core</artifactId>
@@ -114,11 +91,7 @@
                     </exclusion>
                 </exclusions>
             </dependency>
-            <dependency>
-                <groupId>commons-jxpath</groupId>
-                <artifactId>commons-jxpath</artifactId>
-                <version>1.3</version>
-            </dependency>
+
             <dependency>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>

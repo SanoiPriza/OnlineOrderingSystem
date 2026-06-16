@@ -40,6 +40,7 @@ public class OrderMapper {
                 .amount(entity.getAmount())
                 .currency(entity.getCurrency())
                 .paymentTransactionId(entity.getPaymentTransactionId())
+                .username(entity.getUsername())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();

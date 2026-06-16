@@ -5,6 +5,7 @@ import org.example.productService.dto.ProductRequest;
 import org.example.productService.dto.ProductResponse;
 import org.example.productService.service.ProductService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -33,11 +34,13 @@ public class ProductController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ProductResponse createProduct(@Valid @RequestBody ProductRequest product) {
         return productService.createProduct(product);
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ProductResponse> updateProduct(
             @PathVariable String id,
             @Valid @RequestBody ProductRequest productDetails) {
@@ -46,6 +49,7 @@ public class ProductController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteProduct(@PathVariable String id) {
         productService.deleteProduct(id);
         return ResponseEntity.noContent().build();
@@ -72,6 +76,7 @@ public class ProductController {
     }
 
     @PutMapping("/{id}/stock/decrement")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ProductResponse> decrementStock(
             @PathVariable String id,
             @RequestParam int quantity) {
@@ -79,6 +84,7 @@ public class ProductController {
     }
 
     @PutMapping("/{id}/stock/increment")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ProductResponse> incrementStock(
             @PathVariable String id,
             @RequestParam int quantity) {

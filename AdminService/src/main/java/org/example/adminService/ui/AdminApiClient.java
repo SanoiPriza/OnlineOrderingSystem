@@ -14,10 +14,12 @@ public class AdminApiClient {
 
     private final String baseUrl;
     private final HttpClient http;
+    private final String internalToken;
     private final ObjectMapper mapper;
 
-    public AdminApiClient(String baseUrl) {
+    public AdminApiClient(String baseUrl, String internalToken) {
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+        this.internalToken = internalToken;
         this.http = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(5))
                 .build();
@@ -27,6 +29,7 @@ public class AdminApiClient {
     public DashboardSnapshot fetchSnapshot() throws Exception {
         HttpRequest req = HttpRequest.newBuilder()
                 .uri(URI.create(baseUrl + "/admin/snapshot"))
+                .header("X-Internal-Service-Token", internalToken)
                 .GET()
                 .timeout(Duration.ofSeconds(8))
                 .build();
@@ -38,13 +41,16 @@ public class AdminApiClient {
     }
 
     public RetryResult retryDlq(String queueName) throws Exception {
-        String encodedQueue = queueName.replace(".", "%2E");
         HttpRequest req = HttpRequest.newBuilder()
-                .uri(URI.create(baseUrl + "/admin/dlq/" + encodedQueue + "/retry"))
+                .uri(URI.create(baseUrl + "/admin/dlq/" + queueName + "/retry"))
+                .header("X-Internal-Service-Token", internalToken)
                 .POST(HttpRequest.BodyPublishers.noBody())
                 .timeout(Duration.ofSeconds(30))
                 .build();
         HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+        if (resp.statusCode() != 200) {
+            throw new RuntimeException("HTTP " + resp.statusCode() + " : " + resp.body());
+        }
         return mapper.readValue(resp.body(), RetryResult.class);
     }
 }
