@@ -77,6 +77,28 @@ public class GatewayConfig {
                         }))
                         .uri("lb://product-service"))
 
+                // Admin internal routes for HealthCheck and Stats
+                .route("admin-user-service", r -> r
+                        .path("/user-service/**")
+                        .filters(f -> f.stripPrefix(1))
+                        .uri("lb://user-service"))
+                .route("admin-payment-service", r -> r
+                        .path("/payment-service/**")
+                        .filters(f -> f.stripPrefix(1))
+                        .uri("lb://payment-service"))
+                .route("admin-order-service", r -> r
+                        .path("/order-service/**")
+                        .filters(f -> f.stripPrefix(1))
+                        .uri("lb://order-service"))
+                .route("admin-product-service", r -> r
+                        .path("/product-service/**")
+                        .filters(f -> f.stripPrefix(1))
+                        .uri("lb://product-service"))
+                .route("admin-discovery-service", r -> r
+                        .path("/discovery-service/**")
+                        .filters(f -> f.stripPrefix(1))
+                        .uri("http://discovery-service:8761"))
+
                 .build();
     }
 }

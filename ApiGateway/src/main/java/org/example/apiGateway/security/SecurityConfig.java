@@ -14,8 +14,8 @@ public class SecurityConfig {
 
     @Bean
     public JwtTokenUtil jwtTokenUtil(
-            @Value("${jwt.secret}") String secret,
-            @Value("${jwt.expiration}") long expiration) {
+            @Value("${jwt.secret:${JWT_SECRET:OnlineOrderingSystemSecretKeyThatIsAtLeast32BytesLong!}}") String secret,
+            @Value("${jwt.expiration:86400000}") long expiration) {
         return new JwtTokenUtil(secret, expiration);
     }
 
