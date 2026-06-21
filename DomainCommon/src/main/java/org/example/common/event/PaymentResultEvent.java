@@ -2,7 +2,7 @@ package org.example.common.event;
 
 public class PaymentResultEvent {
     private String orderId;
-    private String status; // SUCCESS or FAILED
+    private String status;
     private String transactionId;
     private String errorMessage;
 

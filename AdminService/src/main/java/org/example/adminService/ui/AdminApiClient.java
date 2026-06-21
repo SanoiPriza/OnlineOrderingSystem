@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.example.adminService.dto.DashboardSnapshot;
 import org.example.adminService.dto.RetryResult;
+
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -11,6 +12,8 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 
 public class AdminApiClient {
+
+    private static final String HEADER_INTERNAL_TOKEN = "X-Internal-Service-Token";
 
     private final String baseUrl;
     private final HttpClient http;
@@ -29,7 +32,7 @@ public class AdminApiClient {
     public DashboardSnapshot fetchSnapshot() throws Exception {
         HttpRequest req = HttpRequest.newBuilder()
                 .uri(URI.create(baseUrl + "/admin/snapshot"))
-                .header("X-Internal-Service-Token", internalToken)
+                .header(HEADER_INTERNAL_TOKEN, internalToken)
                 .GET()
                 .timeout(Duration.ofSeconds(8))
                 .build();
@@ -43,7 +46,7 @@ public class AdminApiClient {
     public RetryResult retryDlq(String queueName) throws Exception {
         HttpRequest req = HttpRequest.newBuilder()
                 .uri(URI.create(baseUrl + "/admin/dlq/" + queueName + "/retry"))
-                .header("X-Internal-Service-Token", internalToken)
+                .header(HEADER_INTERNAL_TOKEN, internalToken)
                 .POST(HttpRequest.BodyPublishers.noBody())
                 .timeout(Duration.ofSeconds(30))
                 .build();

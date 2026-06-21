@@ -7,11 +7,11 @@ import org.example.paymentService.model.Payment;
 import org.example.paymentService.model.PaymentRequest;
 import org.example.paymentService.model.PaymentResponse;
 import org.example.paymentService.repository.PaymentRepository;
+import org.example.paymentService.repository.ProcessedEventRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -20,25 +20,33 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final PaymentGatewayClient paymentGatewayClient;
 
-    public PaymentService(PaymentRepository paymentRepository, PaymentGatewayClient paymentGatewayClient) {
+    private final ProcessedEventRepository processedEventRepository;
+    private final org.example.paymentService.repository.OutboxEventRepository outboxEventRepository;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
+
+    public PaymentService(PaymentRepository paymentRepository, PaymentGatewayClient paymentGatewayClient, ProcessedEventRepository processedEventRepository, org.example.paymentService.repository.OutboxEventRepository outboxEventRepository) {
         this.paymentRepository = paymentRepository;
         this.paymentGatewayClient = paymentGatewayClient;
+        this.processedEventRepository = processedEventRepository;
+        this.outboxEventRepository = outboxEventRepository;
     }
 
-    public PaymentResponse processPayment(PaymentRequest paymentRequest) {
-        Optional<Payment> existing = paymentRepository.findByOrderId(paymentRequest.getOrderId());
-        if (existing.isPresent()) {
-            Payment found = existing.get();
-            if (found.getStatus() == PaymentStatus.SUCCESS || found.getStatus() == PaymentStatus.PENDING) {
-                PaymentResponse idempotentResponse = new PaymentResponse();
-                idempotentResponse.setTransactionId(found.getTransactionId());
-                idempotentResponse.setStatus(found.getStatus().name());
-                idempotentResponse.setGatewayTransactionId(found.getGatewayTransactionId());
-                idempotentResponse.setErrorMessage(found.getErrorMessage());
-                return idempotentResponse;
-            }
+    public void processPaymentAsync(PaymentRequest paymentRequest) {
+        if (paymentRequest.getEventId() != null && processedEventRepository.existsById(paymentRequest.getEventId())) {
+            return;
         }
 
+        Payment savedPayment = initiatePayment(paymentRequest);
+
+        paymentGatewayClient.processPayment(savedPayment.getTransactionId(), paymentRequest)
+                .subscribe(
+                        response -> completePayment(savedPayment.getId(), response, null, paymentRequest.getEventId()),
+                        error -> completePayment(savedPayment.getId(), null, error, paymentRequest.getEventId())
+                );
+    }
+
+    @Transactional
+    public Payment initiatePayment(PaymentRequest paymentRequest) {
         Payment payment = new Payment();
         payment.setOrderId(paymentRequest.getOrderId());
         payment.setAmount(paymentRequest.getAmount());
@@ -47,39 +55,42 @@ public class PaymentService {
         payment.setStatus(PaymentStatus.PENDING);
         payment.setTransactionId(generateTransactionId());
         payment.setCreatedAt(LocalDateTime.now());
+        return paymentRepository.save(payment);
+    }
 
-        Payment savedPayment = paymentRepository.save(payment);
+    @Transactional
+    public void completePayment(Long paymentId, PaymentResponse response, Throwable error, String eventId) {
+        Payment payment = paymentRepository.findById(paymentId).orElseThrow();
+
+        if (response != null && "SUCCESS".equals(response.getStatus())) {
+            payment.setStatus(PaymentStatus.SUCCESS);
+            payment.setCompletedAt(LocalDateTime.now());
+            payment.setGatewayTransactionId(response.getGatewayTransactionId());
+        } else {
+            payment.setStatus(PaymentStatus.FAILED);
+            payment.setErrorMessage(error != null ? error.getMessage() : (response != null ? response.getErrorMessage() : "Unknown error"));
+            if (response != null) {
+                payment.setGatewayTransactionId(response.getGatewayTransactionId());
+            }
+        }
+        payment.setUpdatedAt(LocalDateTime.now());
+        paymentRepository.save(payment);
+
+        if (eventId != null) {
+            processedEventRepository.save(new org.example.paymentService.model.ProcessedEvent(eventId));
+        }
 
         try {
-            PaymentResponse gatewayResponse = paymentGatewayClient
-                    .processPayment(savedPayment.getTransactionId(), paymentRequest)
-                    .block();
-
-            String gatewayStatus = gatewayResponse.getStatus();
-            if ("SUCCESS".equals(gatewayStatus)) {
-                savedPayment.setStatus(PaymentStatus.SUCCESS);
-                savedPayment.setCompletedAt(LocalDateTime.now());
-            } else {
-                savedPayment.setStatus(PaymentStatus.FAILED);
-            }
-
-            savedPayment.setGatewayTransactionId(gatewayResponse.getGatewayTransactionId());
-            savedPayment.setUpdatedAt(LocalDateTime.now());
-            paymentRepository.save(savedPayment);
-
-            return gatewayResponse;
+            org.example.common.event.PaymentResultEvent resultEvent = new org.example.common.event.PaymentResultEvent(
+                    payment.getOrderId(), payment.getStatus().name(), payment.getTransactionId(), payment.getErrorMessage());
+            String payload = objectMapper.writeValueAsString(resultEvent);
+            org.example.paymentService.model.OutboxEvent outboxEvent = new org.example.paymentService.model.OutboxEvent(
+                    org.example.paymentService.config.RabbitMQConfig.EXCHANGE_NAME,
+                    org.example.paymentService.config.RabbitMQConfig.PAYMENT_RESULT_ROUTING_KEY,
+                    payload);
+            outboxEventRepository.save(outboxEvent);
         } catch (Exception e) {
-            savedPayment.setStatus(PaymentStatus.FAILED);
-            savedPayment.setErrorMessage(e.getMessage());
-            savedPayment.setUpdatedAt(LocalDateTime.now());
-            paymentRepository.save(savedPayment);
-
-            PaymentResponse errorResponse = new PaymentResponse();
-            errorResponse.setTransactionId(savedPayment.getTransactionId());
-            errorResponse.setStatus("FAILED");
-            errorResponse.setErrorMessage("Payment processing failed: " + e.getMessage());
-
-            return errorResponse;
+            throw new RuntimeException("Failed to serialize PaymentResultEvent", e);
         }
     }
 
@@ -103,7 +114,7 @@ public class PaymentService {
         if (!payment.getStatus().canTransitionTo(PaymentStatus.REFUNDED)) {
             throw new InvalidOperationException(
                     "Cannot refund payment in status: " + payment.getStatus() +
-                    ". Only SUCCESS payments can be refunded.");
+                            ". Only SUCCESS payments can be refunded.");
         }
 
         try {

@@ -42,13 +42,20 @@ public class UserService {
     @Transactional
     public UserDto createUser(UserCreateRequest request, Set<String> roleNames) {
         User user = userMapper.toEntity(request);
+        if (user.getUsername() != null)
+            user.setUsername(org.springframework.web.util.HtmlUtils.htmlEscape(user.getUsername()));
+        if (user.getEmail() != null) user.setEmail(org.springframework.web.util.HtmlUtils.htmlEscape(user.getEmail()));
+        if (user.getFirstName() != null)
+            user.setFirstName(org.springframework.web.util.HtmlUtils.htmlEscape(user.getFirstName()));
+        if (user.getLastName() != null)
+            user.setLastName(org.springframework.web.util.HtmlUtils.htmlEscape(user.getLastName()));
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         user.setCreatedAt(LocalDateTime.now());
 
         Set<Role> roles = new HashSet<>();
         for (String roleName : roleNames) {
             Role role = roleRepository.findByName(roleName)
-                    .orElseThrow(() -> new ResourceNotFoundException("Role", "name", roleName));
+                    .orElseThrow(() -> new ResourceNotFoundException("Role", "name", org.springframework.web.util.HtmlUtils.htmlEscape(roleName)));
             roles.add(role);
         }
         user.setRoles(roles);
@@ -78,6 +85,10 @@ public class UserService {
         return userRepository.findById(id)
                 .map(user -> {
                     userMapper.updateEntityFromRequest(request, user);
+                    if (user.getFirstName() != null)
+                        user.setFirstName(org.springframework.web.util.HtmlUtils.htmlEscape(user.getFirstName()));
+                    if (user.getLastName() != null)
+                        user.setLastName(org.springframework.web.util.HtmlUtils.htmlEscape(user.getLastName()));
                     user.setUpdatedAt(LocalDateTime.now());
                     return userMapper.toDto(userRepository.save(user));
                 });
@@ -90,7 +101,7 @@ public class UserService {
                     Set<Role> roles = new HashSet<>();
                     for (String roleName : roleNames) {
                         Role role = roleRepository.findByName(roleName)
-                                .orElseThrow(() -> new ResourceNotFoundException("Role", "name", roleName));
+                                .orElseThrow(() -> new ResourceNotFoundException("Role", "name", org.springframework.web.util.HtmlUtils.htmlEscape(roleName)));
                         roles.add(role);
                     }
                     user.setRoles(roles);

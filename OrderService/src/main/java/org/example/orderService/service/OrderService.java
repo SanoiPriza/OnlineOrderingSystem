@@ -1,33 +1,31 @@
 package org.example.orderService.service;
 
-import org.example.orderService.client.ProductServiceClient;
-import org.example.orderService.dto.ProductResponse;
-
+import org.example.common.event.StockReservedEvent;
 import org.example.common.exception.InvalidOperationException;
 import org.example.common.exception.ResourceNotFoundException;
 import org.example.common.model.OrderStatus;
-import org.example.orderService.dto.PaymentResponse;
+import org.example.orderService.client.ProductServiceClient;
 import org.example.orderService.dto.OrderRequest;
 import org.example.orderService.dto.OrderResponse;
+import org.example.orderService.dto.PaymentResponse;
+import org.example.orderService.dto.ProductResponse;
 import org.example.orderService.mapper.OrderMapper;
 import org.example.orderService.model.OrderEntity;
+import org.example.orderService.model.ProcessedEvent;
 import org.example.orderService.repository.OrderRepository;
 import org.example.orderService.repository.OutboxEventRepository;
+import org.example.orderService.repository.ProcessedEventRepository;
+import org.example.orderService.repository.ProductPriceCacheRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import org.example.orderService.model.ProcessedEvent;
-import org.example.orderService.repository.ProcessedEventRepository;
-import org.example.common.event.StockReservedEvent;
-import org.springframework.context.ApplicationEventPublisher;
-import org.example.orderService.event.OutboxSavedEvent;
-import java.math.BigDecimal;
 
 @Service
 public class OrderService {
@@ -38,26 +36,22 @@ public class OrderService {
     private final OrderPaymentProcessor orderPaymentProcessor;
     private final ProductServiceClient productServiceClient;
     private final ProcessedEventRepository processedEventRepository;
-    private final ApplicationEventPublisher applicationEventPublisher;
-
-    @org.springframework.beans.factory.annotation.Autowired
-    @org.springframework.context.annotation.Lazy
-    private OrderService self;
+    private final ProductPriceCacheRepository productPriceCacheRepository;
 
     public OrderService(OrderRepository orderRepository,
-            OutboxEventRepository outboxEventRepository,
-            OrderMapper orderMapper,
-            OrderPaymentProcessor orderPaymentProcessor,
-            ProductServiceClient productServiceClient,
-            ProcessedEventRepository processedEventRepository,
-            ApplicationEventPublisher applicationEventPublisher) {
+                        OutboxEventRepository outboxEventRepository,
+                        OrderMapper orderMapper,
+                        OrderPaymentProcessor orderPaymentProcessor,
+                        ProductServiceClient productServiceClient,
+                        ProcessedEventRepository processedEventRepository,
+                        ProductPriceCacheRepository productPriceCacheRepository) {
         this.orderRepository = orderRepository;
         this.outboxEventRepository = outboxEventRepository;
         this.orderMapper = orderMapper;
         this.orderPaymentProcessor = orderPaymentProcessor;
         this.productServiceClient = productServiceClient;
         this.processedEventRepository = processedEventRepository;
-        this.applicationEventPublisher = applicationEventPublisher;
+        this.productPriceCacheRepository = productPriceCacheRepository;
     }
 
     public List<OrderResponse> getAllOrders() {
@@ -77,29 +71,30 @@ public class OrderService {
         return orderRepository.findById(id).map(orderMapper::toResponse);
     }
 
+    @Transactional
     public OrderResponse createOrder(OrderRequest orderRequest) {
         String productId = orderRequest.getProductId();
         BigDecimal productPrice;
         String currency = "USD";
-        
+
         try {
-            ProductResponse product = productServiceClient.getProductById(productId);
-            if (product == null || product.getPrice() == null) {
-                throw new ResourceNotFoundException("Product not found or has no price");
+            Optional<org.example.orderService.model.ProductPriceCache> cachedProduct = productPriceCacheRepository.findById(productId);
+            if (cachedProduct.isPresent()) {
+                productPrice = cachedProduct.get().getPrice();
+            } else {
+                ProductResponse fallbackResponse = productServiceClient.getProductById(productId);
+                if (fallbackResponse == null) {
+                    throw new ResourceNotFoundException("Product price not found locally or remotely for id: " + productId);
+                }
+                productPrice = fallbackResponse.getPrice();
             }
-            productPrice = product.getPrice();
         } catch (Exception e) {
-            throw new InvalidOperationException("Failed to fetch product " + productId + " from ProductService: " + e.getMessage());
+            throw new InvalidOperationException("Failed to fetch product " + productId + " from local cache or remote service: " + e.getMessage(), e);
         }
 
         BigDecimal totalAmount = productPrice.multiply(BigDecimal.valueOf(orderRequest.getQuantity()));
         String username = resolveCurrentUsername();
 
-        return self.saveOrderInTransaction(orderRequest, productId, totalAmount, currency, username);
-    }
-
-    @Transactional
-    public OrderResponse saveOrderInTransaction(OrderRequest orderRequest, String productId, BigDecimal totalAmount, String currency, String username) {
         OrderEntity order = new OrderEntity();
         order.setStatus(OrderStatus.PENDING);
         order.setCreatedAt(LocalDateTime.now());
@@ -115,22 +110,23 @@ public class OrderService {
         org.example.orderService.model.OutboxEvent event = org.example.orderService.model.OutboxEvent.orderCreated(
                 savedOrder.getId(), orderRequest.getProductId(), orderRequest.getQuantity());
         outboxEventRepository.save(event);
-        applicationEventPublisher.publishEvent(new OutboxSavedEvent(this));
 
         return orderMapper.toResponse(savedOrder);
     }
 
     @Transactional
     public void initiateOrderPayment(Long orderId) {
-        org.example.orderService.model.OutboxEvent outboxEvent = org.example.orderService.model.OutboxEvent.initiatePayment(orderId);
+        OrderEntity order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
+        org.example.orderService.model.OutboxEvent outboxEvent = org.example.orderService.model.OutboxEvent.initiatePayment(
+                orderId, order.getAmount(), order.getCurrency(), order.getPaymentMethod());
         outboxEventRepository.save(outboxEvent);
-        applicationEventPublisher.publishEvent(new org.example.orderService.event.OutboxSavedEvent(this));
     }
 
     @Transactional
     public void processStockReserved(StockReservedEvent event) {
         if (event.getEventId() != null && processedEventRepository.existsById(event.getEventId())) {
-            return; // Already processed
+            return;
         }
 
         Long orderId = Long.parseLong(event.getOrderId());
@@ -143,9 +139,9 @@ public class OrderService {
             orderRepository.save(order);
         }
 
-        org.example.orderService.model.OutboxEvent outboxEvent = org.example.orderService.model.OutboxEvent.initiatePayment(orderId);
+        org.example.orderService.model.OutboxEvent outboxEvent = org.example.orderService.model.OutboxEvent.initiatePayment(
+                orderId, order.getAmount(), order.getCurrency(), order.getPaymentMethod());
         outboxEventRepository.save(outboxEvent);
-        applicationEventPublisher.publishEvent(new OutboxSavedEvent(this));
 
         if (event.getEventId() != null) {
             processedEventRepository.save(new ProcessedEvent(event.getEventId()));
@@ -167,15 +163,6 @@ public class OrderService {
 
     public CompletableFuture<OrderEntity> refundOrderPaymentAsync(Long id) {
         return orderPaymentProcessor.refundPaymentAsync(id);
-    }
-
-    @Transactional
-    public OrderResponse refundOrderPayment(Long id) {
-        try {
-            return orderMapper.toResponse(orderPaymentProcessor.refundPaymentAsync(id).get());
-        } catch (Exception e) {
-            throw new ResourceNotFoundException("Error refunding payment: " + e.getMessage());
-        }
     }
 
     @Transactional
@@ -206,14 +193,6 @@ public class OrderService {
 
     public CompletableFuture<PaymentResponse> getOrderPaymentStatusAsync(Long id) {
         return orderPaymentProcessor.getPaymentStatusAsync(id);
-    }
-
-    public PaymentResponse getOrderPaymentStatus(Long id) {
-        try {
-            return orderPaymentProcessor.getPaymentStatusAsync(id).get();
-        } catch (Exception e) {
-            throw new ResourceNotFoundException("Error getting payment status: " + e.getMessage());
-        }
     }
 
     private String resolveCurrentUsername() {

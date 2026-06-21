@@ -3,6 +3,7 @@ package org.example.common.event;
 import java.math.BigDecimal;
 
 public class PaymentRequestEvent {
+    private String eventId;
     private String orderId;
     private BigDecimal amount;
     private String currency;
@@ -11,11 +12,20 @@ public class PaymentRequestEvent {
     public PaymentRequestEvent() {
     }
 
-    public PaymentRequestEvent(String orderId, BigDecimal amount, String currency, String paymentMethod) {
+    public PaymentRequestEvent(String eventId, String orderId, BigDecimal amount, String currency, String paymentMethod) {
+        this.eventId = eventId;
         this.orderId = orderId;
         this.amount = amount;
         this.currency = currency;
         this.paymentMethod = paymentMethod;
+    }
+
+    public String getEventId() {
+        return eventId;
+    }
+
+    public void setEventId(String eventId) {
+        this.eventId = eventId;
     }
 
     public String getOrderId() {

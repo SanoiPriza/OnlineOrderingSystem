@@ -34,7 +34,7 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
         errorResponse.put("status", 401);
 
         String message = "Authentication required";
-        if (authException != null && authException.getMessage() != null && !authException.getMessage().trim().isEmpty()) {
+        if (authException.getMessage() != null && !authException.getMessage().trim().isEmpty()) {
             message = authException.getMessage();
         }
         errorResponse.put("message", message);

@@ -14,12 +14,22 @@ public class PaymentRequest {
     @Positive(message = "Amount must be positive")
     private BigDecimal amount;
 
+    private String eventId;
+
     private String currency;
 
     @NotBlank(message = "Payment method is required")
     private String paymentMethod;
 
     public PaymentRequest() {
+    }
+
+    public String getEventId() {
+        return eventId;
+    }
+
+    public void setEventId(String eventId) {
+        this.eventId = eventId;
     }
 
     public String getOrderId() {

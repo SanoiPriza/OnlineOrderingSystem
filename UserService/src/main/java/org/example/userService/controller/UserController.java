@@ -47,10 +47,16 @@ public class UserController {
     }
 
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<UserDto> createUser(@RequestBody UserCreateRequest user, @RequestParam Set<String> roles) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(userService.createUser(user, roles));
+    public UserDto createUser(@RequestBody UserCreateRequest user, @RequestParam Set<String> roles) {
+        if (user.getUsername() != null) user.setUsername(org.springframework.web.util.HtmlUtils.htmlEscape(user.getUsername()));
+        if (user.getEmail() != null) user.setEmail(org.springframework.web.util.HtmlUtils.htmlEscape(user.getEmail()));
+        if (user.getFirstName() != null) user.setFirstName(org.springframework.web.util.HtmlUtils.htmlEscape(user.getFirstName()));
+        if (user.getLastName() != null) user.setLastName(org.springframework.web.util.HtmlUtils.htmlEscape(user.getLastName()));
+        Set<String> safeRoles = roles.stream().map(org.springframework.web.util.HtmlUtils::htmlEscape).collect(java.util.stream.Collectors.toSet());
+
+        return userService.createUser(user, safeRoles);
     }
 
     @PutMapping("/{id}")

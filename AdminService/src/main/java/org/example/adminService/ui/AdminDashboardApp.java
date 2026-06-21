@@ -15,7 +15,10 @@ public class AdminDashboardApp extends Application {
         DashboardView view = new DashboardView(client, primaryStage);
 
         Scene scene = new Scene(view.buildRoot(), 1100, 720);
-        scene.getStylesheets().add(getClass().getResource("/dashboard.css").toExternalForm());
+        java.net.URL cssResource = getClass().getResource("/dashboard.css");
+        if (cssResource != null) {
+            scene.getStylesheets().add(cssResource.toExternalForm());
+        }
 
         primaryStage.setTitle("Online Ordering System — Admin Dashboard");
         primaryStage.setScene(scene);

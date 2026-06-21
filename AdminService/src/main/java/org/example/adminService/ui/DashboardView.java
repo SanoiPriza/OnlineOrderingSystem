@@ -6,14 +6,14 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.Node;
 import javafx.scene.control.*;
-import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.*;
-import javafx.scene.paint.Color;
-import javafx.scene.text.*;
 import javafx.stage.Stage;
-import org.example.adminService.dto.*;
+import org.example.adminService.dto.DashboardSnapshot;
+import org.example.adminService.dto.OutboxStats;
+import org.example.adminService.dto.QueueStats;
+import org.example.adminService.dto.ServiceStatus;
+
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -38,7 +38,7 @@ public class DashboardView {
     private Label outboxCompleted;
     private Label outboxFailed;
 
-    private final java.util.Map<String, Label> dlqStatusLabels = new java.util.LinkedHashMap<>();
+
     private FlowPane dlqButtonsPane;
 
     private ScheduledExecutorService scheduler;
@@ -250,7 +250,7 @@ public class DashboardView {
     }
 
     private TableColumn<QueueStats, String> numericCol(String title,
-            java.util.function.Function<QueueStats, String> fn) {
+                                                       java.util.function.Function<QueueStats, String> fn) {
         TableColumn<QueueStats, String> col = new TableColumn<>(title);
         col.setCellValueFactory(c -> new SimpleStringProperty(fn.apply(c.getValue())));
         col.setPrefWidth(90);
@@ -321,7 +321,6 @@ public class DashboardView {
 
         if (snap.getKnownDlqNames() != null && dlqButtonsPane.getChildren().size() != snap.getKnownDlqNames().size()) {
             dlqButtonsPane.getChildren().clear();
-            dlqStatusLabels.clear();
             for (String dlqName : snap.getKnownDlqNames()) {
                 VBox card = new VBox(6);
                 card.getStyleClass().add("dlq-card");
@@ -335,7 +334,6 @@ public class DashboardView {
                 Label statusLabel = new Label("—");
                 statusLabel.setStyle("-fx-text-fill: #95a5a6; -fx-font-size: 11px;");
                 statusLabel.setWrapText(true);
-                dlqStatusLabels.put(dlqName, statusLabel);
 
                 Button retryBtn = new Button("⟳  Retry All");
                 retryBtn.getStyleClass().add("btn-warning");

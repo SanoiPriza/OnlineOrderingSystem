@@ -20,9 +20,9 @@ public class PaymentController {
 
     @PostMapping("/process")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<PaymentResponse> processPayment(@Valid @RequestBody PaymentRequest paymentRequest) {
-        PaymentResponse response = paymentService.processPayment(paymentRequest);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<Void> processPayment(@Valid @RequestBody PaymentRequest paymentRequest) {
+        paymentService.processPaymentAsync(paymentRequest);
+        return ResponseEntity.accepted().build();
     }
 
     @GetMapping("/{transactionId}")

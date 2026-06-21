@@ -48,8 +48,8 @@ public class OrderController {
         }
         OrderResponse order = orderOpt.get();
         org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-        boolean isAdmin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
-        if (!isAdmin && !order.getUsername().equals(auth.getName())) {
+        boolean isAdmin = auth != null && auth.getAuthorities().stream().anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
+        if (!isAdmin && (auth == null || !java.util.Objects.equals(order.getUsername(), auth.getName()))) {
             return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
         }
         return ResponseEntity.ok(order);
@@ -75,8 +75,8 @@ public class OrderController {
         if (orderOpt.isPresent()) {
             OrderResponse order = orderOpt.get();
             org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-            boolean isAdmin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
-            if (!isAdmin && !order.getUsername().equals(auth.getName())) {
+            boolean isAdmin = auth != null && auth.getAuthorities().stream().anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
+            if (!isAdmin && (auth == null || !java.util.Objects.equals(order.getUsername(), auth.getName()))) {
                 return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
             }
 

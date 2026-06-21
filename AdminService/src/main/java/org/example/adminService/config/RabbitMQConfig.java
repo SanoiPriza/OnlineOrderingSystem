@@ -4,11 +4,11 @@ import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.TopicExchange;
-import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
+import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.beans.factory.annotation.Qualifier;
 
 @Configuration
 public class RabbitMQConfig {
@@ -58,31 +58,31 @@ public class RabbitMQConfig {
 
     @Bean
     public Binding bOrderCreatedDlq(@Qualifier("orderCreatedDlq") Queue orderCreatedDlq,
-            @Qualifier("dlxExchange") TopicExchange dlxExchange) {
+                                    @Qualifier("dlxExchange") TopicExchange dlxExchange) {
         return BindingBuilder.bind(orderCreatedDlq).to(dlxExchange).with("order.created.queue.dlq");
     }
 
     @Bean
     public Binding bStockCompensationDlq(@Qualifier("stockCompensationDlq") Queue stockCompensationDlq,
-            @Qualifier("dlxExchange") TopicExchange dlxExchange) {
+                                         @Qualifier("dlxExchange") TopicExchange dlxExchange) {
         return BindingBuilder.bind(stockCompensationDlq).to(dlxExchange).with("stock.compensation.queue.dlq");
     }
 
     @Bean
     public Binding bStockReservedDlq(@Qualifier("stockReservedDlq") Queue stockReservedDlq,
-            @Qualifier("dlxExchange") TopicExchange dlxExchange) {
+                                     @Qualifier("dlxExchange") TopicExchange dlxExchange) {
         return BindingBuilder.bind(stockReservedDlq).to(dlxExchange).with("stock.reserved.queue.dlq");
     }
 
     @Bean
     public Binding bStockReservationFailedDlq(@Qualifier("stockReservationFailedDlq") Queue stockReservationFailedDlq,
-            @Qualifier("dlxExchange") TopicExchange dlxExchange) {
+                                              @Qualifier("dlxExchange") TopicExchange dlxExchange) {
         return BindingBuilder.bind(stockReservationFailedDlq).to(dlxExchange)
                 .with("stock.reservation.failed.queue.dlq");
     }
 
     @Bean
     public MessageConverter jsonMessageConverter() {
-        return new Jackson2JsonMessageConverter();
+        return new JacksonJsonMessageConverter();
     }
 }
